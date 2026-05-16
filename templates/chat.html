@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat with Bob - Bob-Guard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <h1>🛡️ Bob-Guard</h1>
+                <p class="tagline">Chat with Bob</p>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="/">Analyze</a></li>
+                <li><a href="/results">Results</a></li>
+                <li><a href="/chat" class="active">Chat with Bob</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container chat-container">
+        <section class="chat-header">
+            <h2>💬 Ask Bob About Your Code</h2>
+            <p>Get instant answers about compliance, security, and best practices</p>
+        </section>
+
+        <div class="chat-layout">
+            <!-- Chat Messages Area -->
+            <div class="chat-messages" id="chatMessages">
+                <div class="message bot-message">
+                    <div class="message-avatar">🤖</div>
+                    <div class="message-content">
+                        <div class="message-header">
+                            <span class="message-sender">Bob</span>
+                            <span class="message-time">Just now</span>
+                        </div>
+                        <div class="message-text">
+                            Hello! I'm Bob, your AI assistant for code compliance and security. 
+                            I can help you with:
+                            <ul>
+                                <li>Understanding compliance violations (GDPR, HIPAA)</li>
+                                <li>Explaining security vulnerabilities</li>
+                                <li>Suggesting code improvements</li>
+                                <li>Answering questions about best practices</li>
+                            </ul>
+                            How can I help you today?
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="quick-actions">
+                <h4>Quick Questions</h4>
+                <div class="quick-action-buttons">
+                    <button class="quick-action-btn" data-question="What is GDPR compliance?">
+                        What is GDPR compliance?
+                    </button>
+                    <button class="quick-action-btn" data-question="How do I fix SQL injection vulnerabilities?">
+                        How do I fix SQL injection?
+                    </button>
+                    <button class="quick-action-btn" data-question="What are common security best practices?">
+                        Security best practices
+                    </button>
+                    <button class="quick-action-btn" data-question="Explain HIPAA requirements">
+                        HIPAA requirements
+                    </button>
+                    <button class="quick-action-btn" data-question="How to handle sensitive data?">
+                        Handling sensitive data
+                    </button>
+                    <button class="quick-action-btn" data-question="What is XSS and how to prevent it?">
+                        Prevent XSS attacks
+                    </button>
+                </div>
+            </div>
+
+            <!-- Chat Input Area -->
+            <div class="chat-input-container">
+                <div class="chat-input-wrapper">
+                    <textarea 
+                        id="chatInput" 
+                        class="chat-input" 
+                        placeholder="Ask Bob a question about your code..."
+                        rows="3"
+                    ></textarea>
+                    <div class="chat-input-actions">
+                        <button class="btn btn-secondary btn-small" id="attachCodeBtn" title="Attach code snippet">
+                            📎 Attach Code
+                        </button>
+                        <button class="btn btn-primary" id="sendMessageBtn">
+                            Send 📤
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Code Snippet Modal -->
+        <div id="codeModal" class="modal">
+            <div class="modal-content">
+                <span class="modal-close">&times;</span>
+                <h3>Attach Code Snippet</h3>
+                
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="codeLanguage">Language</label>
+                        <select id="codeLanguage" class="form-control">
+                            <option value="python">Python</option>
+                            <option value="javascript">JavaScript</option>
+                            <option value="typescript">TypeScript</option>
+                            <option value="java">Java</option>
+                            <option value="cpp">C++</option>
+                            <option value="csharp">C#</option>
+                            <option value="go">Go</option>
+                            <option value="ruby">Ruby</option>
+                            <option value="php">PHP</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="codeSnippet">Code</label>
+                        <textarea 
+                            id="codeSnippet" 
+                            class="form-control code-textarea" 
+                            rows="10"
+                            placeholder="Paste your code here..."
+                        ></textarea>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button class="btn btn-secondary" id="cancelCodeBtn">Cancel</button>
+                        <button class="btn btn-primary" id="attachCodeConfirmBtn">Attach</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Features -->
+        <section class="chat-features">
+            <h3>What Bob Can Do</h3>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🔍</div>
+                    <h4>Code Analysis</h4>
+                    <p>Analyze code snippets for issues</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">💡</div>
+                    <h4>Suggestions</h4>
+                    <p>Get improvement recommendations</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">📚</div>
+                    <h4>Explanations</h4>
+                    <p>Understand compliance rules</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🔧</div>
+                    <h4>Fix Generation</h4>
+                    <p>Generate code fixes instantly</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 Bob-Guard. Built with ❤️ for secure and compliant code.</p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        // Chat functionality
+        const chatMessages = document.getElementById('chatMessages');
+        const chatInput = document.getElementById('chatInput');
+        const sendMessageBtn = document.getElementById('sendMessageBtn');
+        const quickActionButtons = document.querySelectorAll('.quick-action-btn');
+        const attachCodeBtn = document.getElementById('attachCodeBtn');
+        const codeModal = document.getElementById('codeModal');
+        const modalClose = codeModal.querySelector('.modal-close');
+        const cancelCodeBtn = document.getElementById('cancelCodeBtn');
+        const attachCodeConfirmBtn = document.getElementById('attachCodeConfirmBtn');
+
+        let attachedCode = null;
+
+        // Send message on button click
+        sendMessageBtn.addEventListener('click', sendMessage);
+
+        // Send message on Enter (Shift+Enter for new line)
+        chatInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // Quick action buttons
+        quickActionButtons.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const question = this.getAttribute('data-question');
+                chatInput.value = question;
+                sendMessage();
+            });
+        });
+
+        // Attach code modal
+        attachCodeBtn.addEventListener('click', () => {
+            codeModal.style.display = 'block';
+        });
+
+        modalClose.addEventListener('click', () => {
+            codeModal.style.display = 'none';
+        });
+
+        cancelCodeBtn.addEventListener('click', () => {
+            codeModal.style.display = 'none';
+        });
+
+        attachCodeConfirmBtn.addEventListener('click', () => {
+            const language = document.getElementById('codeLanguage').value;
+            const code = document.getElementById('codeSnippet').value;
+            
+            if (code.trim()) {
+                attachedCode = { language, code };
+                attachCodeBtn.textContent = '📎 Code Attached ✓';
+                attachCodeBtn.classList.add('code-attached');
+                codeModal.style.display = 'none';
+            }
+        });
+
+        function sendMessage() {
+            const message = chatInput.value.trim();
+            if (!message) return;
+
+            // Add user message to chat
+            addMessage(message, 'user');
+
+            // Clear input
+            chatInput.value = '';
+
+            // Prepare context
+            const context = {};
+            if (attachedCode) {
+                context.code = attachedCode.code;
+                context.language = attachedCode.language;
+            }
+
+            // Show typing indicator
+            showTypingIndicator();
+
+            // Send to API
+            fetch('/api/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    message: message,
+                    context: context
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                removeTypingIndicator();
+                if (data.success) {
+                    addMessage(data.response, 'bot');
+                    
+                    // Add suggestions if any
+                    if (data.suggestions && data.suggestions.length > 0) {
+                        addSuggestions(data.suggestions);
+                    }
+                } else {
+                    addMessage('Sorry, I encountered an error. Please try again.', 'bot');
+                }
+            })
+            .catch(error => {
+                removeTypingIndicator();
+                addMessage('Sorry, I\'m having trouble connecting. Please try again later.', 'bot');
+                console.error('Chat error:', error);
+            });
+
+            // Reset attached code
+            if (attachedCode) {
+                attachedCode = null;
+                attachCodeBtn.textContent = '📎 Attach Code';
+                attachCodeBtn.classList.remove('code-attached');
+            }
+        }
+
+        function addMessage(text, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}-message`;
+            
+            const avatar = sender === 'bot' ? '🤖' : '👤';
+            const senderName = sender === 'bot' ? 'Bob' : 'You';
+            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            messageDiv.innerHTML = `
+                <div class="message-avatar">${avatar}</div>
+                <div class="message-content">
+                    <div class="message-header">
+                        <span class="message-sender">${senderName}</span>
+                        <span class="message-time">${time}</span>
+                    </div>
+                    <div class="message-text">${escapeHtml(text)}</div>
+                </div>
+            `;
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function showTypingIndicator() {
+            const indicator = document.createElement('div');
+            indicator.className = 'message bot-message typing-indicator';
+            indicator.id = 'typingIndicator';
+            indicator.innerHTML = `
+                <div class="message-avatar">🤖</div>
+                <div class="message-content">
+                    <div class="typing-dots">
+                        <span></span><span></span><span></span>
+                    </div>
+                </div>
+            `;
+            chatMessages.appendChild(indicator);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function removeTypingIndicator() {
+            const indicator = document.getElementById('typingIndicator');
+            if (indicator) {
+                indicator.remove();
+            }
+        }
+
+        function addSuggestions(suggestions) {
+            const suggestionsDiv = document.createElement('div');
+            suggestionsDiv.className = 'message bot-message';
+            suggestionsDiv.innerHTML = `
+                <div class="message-avatar">💡</div>
+                <div class="message-content">
+                    <div class="message-header">
+                        <span class="message-sender">Suggestions</span>
+                    </div>
+                    <div class="suggestions-list">
+                        ${suggestions.map(s => `<div class="suggestion-item">${escapeHtml(s)}</div>`).join('')}
+                    </div>
+                </div>
+            `;
+            chatMessages.appendChild(suggestionsDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

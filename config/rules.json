@@ -1,0 +1,239 @@
+{
+  "gdpr": {
+    "enabled": true,
+    "description": "General Data Protection Regulation compliance rules",
+    "rules": [
+      {
+        "id": "gdpr-001",
+        "name": "Personal Data Collection Without Consent",
+        "severity": "critical",
+        "description": "Detect collection of personal data without explicit user consent",
+        "patterns": [
+          "collect.*personal.*data",
+          "user.*email.*without.*consent",
+          "store.*pii.*without.*permission"
+        ]
+      },
+      {
+        "id": "gdpr-002",
+        "name": "Data Retention Policy Violation",
+        "severity": "high",
+        "description": "Data stored beyond required retention period",
+        "patterns": [
+          "permanent.*storage.*user.*data",
+          "no.*deletion.*policy"
+        ]
+      },
+      {
+        "id": "gdpr-003",
+        "name": "Missing Data Encryption",
+        "severity": "critical",
+        "description": "Personal data stored or transmitted without encryption",
+        "patterns": [
+          "plaintext.*password",
+          "unencrypted.*personal.*data",
+          "http.*sensitive.*data"
+        ]
+      },
+      {
+        "id": "gdpr-004",
+        "name": "Right to be Forgotten Not Implemented",
+        "severity": "high",
+        "description": "Missing implementation of user data deletion",
+        "patterns": [
+          "no.*delete.*user.*method",
+          "missing.*data.*removal"
+        ]
+      }
+    ]
+  },
+  "hipaa": {
+    "enabled": true,
+    "description": "Health Insurance Portability and Accountability Act compliance rules",
+    "rules": [
+      {
+        "id": "hipaa-001",
+        "name": "PHI Exposure",
+        "severity": "critical",
+        "description": "Protected Health Information exposed without proper safeguards",
+        "patterns": [
+          "phi.*unencrypted",
+          "health.*data.*plaintext",
+          "medical.*record.*exposed"
+        ]
+      },
+      {
+        "id": "hipaa-002",
+        "name": "Insufficient Access Controls",
+        "severity": "high",
+        "description": "Missing or weak access controls for health data",
+        "patterns": [
+          "no.*authentication.*health.*data",
+          "public.*medical.*records",
+          "unrestricted.*phi.*access"
+        ]
+      },
+      {
+        "id": "hipaa-003",
+        "name": "Missing Audit Logs",
+        "severity": "high",
+        "description": "No audit trail for PHI access",
+        "patterns": [
+          "no.*logging.*phi.*access",
+          "missing.*audit.*trail.*health"
+        ]
+      },
+      {
+        "id": "hipaa-004",
+        "name": "Insecure PHI Transmission",
+        "severity": "critical",
+        "description": "Health data transmitted over insecure channels",
+        "patterns": [
+          "http.*phi",
+          "unencrypted.*health.*transmission",
+          "ftp.*medical.*data"
+        ]
+      }
+    ]
+  },
+  "security": {
+    "enabled": true,
+    "description": "General security vulnerability rules",
+    "rules": [
+      {
+        "id": "sec-001",
+        "name": "SQL Injection Vulnerability",
+        "severity": "critical",
+        "description": "Potential SQL injection through unsanitized input",
+        "patterns": [
+          "execute.*\\+.*user.*input",
+          "query.*string.*concatenation",
+          "sql.*format.*user"
+        ],
+        "cwe": "CWE-89"
+      },
+      {
+        "id": "sec-002",
+        "name": "Cross-Site Scripting (XSS)",
+        "severity": "high",
+        "description": "Potential XSS vulnerability through unescaped output",
+        "patterns": [
+          "innerHTML.*user.*input",
+          "document.write.*unescaped",
+          "eval.*user.*data"
+        ],
+        "cwe": "CWE-79"
+      },
+      {
+        "id": "sec-003",
+        "name": "Hardcoded Credentials",
+        "severity": "critical",
+        "description": "Credentials hardcoded in source code",
+        "patterns": [
+          "password\\s*=\\s*['\"]",
+          "api_key\\s*=\\s*['\"]",
+          "secret\\s*=\\s*['\"]"
+        ],
+        "cwe": "CWE-798"
+      },
+      {
+        "id": "sec-004",
+        "name": "Insecure Cryptography",
+        "severity": "high",
+        "description": "Use of weak or deprecated cryptographic algorithms",
+        "patterns": [
+          "md5\\(",
+          "sha1\\(",
+          "DES\\(",
+          "RC4"
+        ],
+        "cwe": "CWE-327"
+      },
+      {
+        "id": "sec-005",
+        "name": "Path Traversal",
+        "severity": "high",
+        "description": "Potential path traversal vulnerability",
+        "patterns": [
+          "open.*user.*input",
+          "file.*path.*concatenation",
+          "\\.\\.\\/.*user"
+        ],
+        "cwe": "CWE-22"
+      },
+      {
+        "id": "sec-006",
+        "name": "Command Injection",
+        "severity": "critical",
+        "description": "Potential command injection through unsanitized input",
+        "patterns": [
+          "exec.*user.*input",
+          "system.*user.*data",
+          "shell.*user"
+        ],
+        "cwe": "CWE-78"
+      },
+      {
+        "id": "sec-007",
+        "name": "Insecure Deserialization",
+        "severity": "critical",
+        "description": "Unsafe deserialization of untrusted data",
+        "patterns": [
+          "pickle.loads.*user",
+          "yaml.load.*unsafe",
+          "unserialize.*user"
+        ],
+        "cwe": "CWE-502"
+      },
+      {
+        "id": "sec-008",
+        "name": "Missing Authentication",
+        "severity": "high",
+        "description": "Sensitive operations without authentication",
+        "patterns": [
+          "no.*auth.*check",
+          "public.*admin.*function",
+          "unauthenticated.*sensitive"
+        ],
+        "cwe": "CWE-306"
+      },
+      {
+        "id": "sec-009",
+        "name": "Insufficient Logging",
+        "severity": "medium",
+        "description": "Security events not properly logged",
+        "patterns": [
+          "no.*logging.*security",
+          "missing.*audit.*log"
+        ],
+        "cwe": "CWE-778"
+      },
+      {
+        "id": "sec-010",
+        "name": "Insecure Random Number Generation",
+        "severity": "medium",
+        "description": "Use of predictable random number generators",
+        "patterns": [
+          "random.random\\(",
+          "Math.random\\(",
+          "rand\\("
+        ],
+        "cwe": "CWE-338"
+      }
+    ]
+  },
+  "custom": {
+    "enabled": false,
+    "description": "Custom organization-specific compliance rules",
+    "rules": []
+  },
+  "settings": {
+    "min_severity_level": "low",
+    "fail_on_critical": true,
+    "fail_on_high": false,
+    "auto_fix_enabled": false,
+    "backup_before_fix": true,
+    "generate_tests": true,
+    "report_format": "html"
+  }
+}

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bob-Guard - Automated Compliance & Security Analysis</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <h1>🛡️ Bob-Guard</h1>
+                <p class="tagline">Automated Compliance & Security Analysis</p>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="/" class="active">Analyze</a></li>
+                <li><a href="/results">Results</a></li>
+                <li><a href="/chat">Chat with Bob</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <section class="hero">
+            <h2>Analyze Your Codebase</h2>
+            <p>Upload files or specify a repository path to detect compliance violations and security vulnerabilities</p>
+        </section>
+
+        <section class="analysis-options">
+            <div class="tabs">
+                <button class="tab-button active" data-tab="file-upload">File Upload</button>
+                <button class="tab-button" data-tab="repo-path">Repository Path</button>
+            </div>
+
+            <!-- File Upload Tab -->
+            <div id="file-upload" class="tab-content active">
+                <div class="upload-area" id="dropZone">
+                    <div class="upload-icon">📁</div>
+                    <h3>Drop files here or click to browse</h3>
+                    <p>Supported: .py, .js, .ts, .java, .cpp, .c, .cs, .go, .rb, .php</p>
+                    <input type="file" id="fileInput" multiple accept=".py,.js,.ts,.java,.cpp,.c,.cs,.go,.rb,.php" hidden>
+                    <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                        Choose Files
+                    </button>
+                </div>
+                <div id="fileList" class="file-list"></div>
+            </div>
+
+            <!-- Repository Path Tab -->
+            <div id="repo-path" class="tab-content">
+                <div class="form-group">
+                    <label for="repoPathInput">Repository Path</label>
+                    <input type="text" id="repoPathInput" class="form-control" 
+                           placeholder="/path/to/your/repository" 
+                           value="">
+                    <small class="form-text">Enter the absolute path to your local repository</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="autoFixCheckbox">
+                        Automatically apply fixes (high confidence only)
+                    </label>
+                </div>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="generateTestsCheckbox">
+                        Generate unit tests after remediation
+                    </label>
+                </div>
+
+                <button class="btn btn-primary btn-large" id="analyzeRepoBtn">
+                    🔍 Analyze Repository
+                </button>
+            </div>
+        </section>
+
+        <!-- Analysis Progress -->
+        <section id="progressSection" class="progress-section" style="display: none;">
+            <h3>Analysis in Progress</h3>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <p id="progressText">Initializing...</p>
+        </section>
+
+        <!-- Results Summary -->
+        <section id="resultsSection" class="results-section" style="display: none;">
+            <h3>Analysis Results</h3>
+            
+            <div class="summary-cards">
+                <div class="summary-card">
+                    <div class="card-icon">📊</div>
+                    <div class="card-content">
+                        <h4>Total Violations</h4>
+                        <p class="card-value" id="totalViolations">0</p>
+                    </div>
+                </div>
+                
+                <div class="summary-card critical">
+                    <div class="card-icon">🔴</div>
+                    <div class="card-content">
+                        <h4>Critical</h4>
+                        <p class="card-value" id="criticalCount">0</p>
+                    </div>
+                </div>
+                
+                <div class="summary-card high">
+                    <div class="card-icon">🟠</div>
+                    <div class="card-content">
+                        <h4>High</h4>
+                        <p class="card-value" id="highCount">0</p>
+                    </div>
+                </div>
+                
+                <div class="summary-card medium">
+                    <div class="card-icon">🟡</div>
+                    <div class="card-content">
+                        <h4>Medium</h4>
+                        <p class="card-value" id="mediumCount">0</p>
+                    </div>
+                </div>
+                
+                <div class="summary-card low">
+                    <div class="card-icon">🟢</div>
+                    <div class="card-content">
+                        <h4>Low</h4>
+                        <p class="card-value" id="lowCount">0</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="results-actions">
+                <button class="btn btn-primary" id="viewDetailsBtn">
+                    View Detailed Report
+                </button>
+                <button class="btn btn-secondary" id="remediateBtn">
+                    🔧 Generate Fixes
+                </button>
+                <button class="btn btn-secondary" id="downloadReportBtn">
+                    📥 Download Report
+                </button>
+            </div>
+
+            <!-- Violations List -->
+            <div class="violations-container">
+                <h4>Top Violations</h4>
+                <div id="violationsList" class="violations-list"></div>
+            </div>
+        </section>
+
+        <!-- Features Section -->
+        <section class="features">
+            <h3>Features</h3>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🔍</div>
+                    <h4>Compliance Analysis</h4>
+                    <p>Detect GDPR, HIPAA, and custom compliance violations</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🛡️</div>
+                    <h4>Security Scanning</h4>
+                    <p>Identify security vulnerabilities and code smells</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🔧</div>
+                    <h4>Auto Remediation</h4>
+                    <p>Generate and apply fixes automatically</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🧪</div>
+                    <h4>Test Generation</h4>
+                    <p>Create unit tests for remediated code</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h4>Detailed Reports</h4>
+                    <p>Generate comprehensive HTML reports</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🤖</div>
+                    <h4>IBM Bob Integration</h4>
+                    <p>Leverage AI for intelligent analysis</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 Bob-Guard. Built with ❤️ for secure and compliant code.</p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

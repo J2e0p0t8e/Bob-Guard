@@ -7,7 +7,7 @@ requests==2.31.0
 python-dotenv==1.0.0
 
 # Code Analysis
-ast-grep-py==0.12.0
+ast-grep-py==0.42.2
 bandit==1.7.5
 pylint==3.0.3
 radon==6.0.1

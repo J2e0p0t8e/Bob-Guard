@@ -1,337 +1,475 @@
+#!/usr/bin/env python3
 """
-Bob-Guard CLI Orchestrator
-Command-line interface for running analysis, remediation, and test generation.
+Bob-Guard CLI - Main Entry Point
+Automated Compliance & Security Analysis Agent for Legacy Codebases
+
+This script orchestrates the complete analysis pipeline:
+1. Code Analysis (detect violations)
+2. Automated Remediation (generate and apply fixes)
+3. Test Generation (create validation tests)
+4. Report Generation (produce final report)
+
+Usage:
+    python main.py --repo /path/to/repository --output ./output
 """
 
-import os
 import sys
-import logging
-import click
+import argparse
+import json
 from pathlib import Path
-from typing import Optional
+from datetime import datetime
+from typing import Dict, Any
 
+# Progress bar for visual feedback
+try:
+    from tqdm import tqdm
+except ImportError:
+    # Fallback if tqdm not available
+    class tqdm:
+        def __init__(self, *args, **kwargs):
+            self.total = kwargs.get('total', 100)
+            self.desc = kwargs.get('desc', '')
+            self.current = 0
+        
+        def update(self, n=1):
+            self.current += n
+            print(f"\r{self.desc}: {self.current}/{self.total}", end='', flush=True)
+        
+        def close(self):
+            print()
+
+# Import Bob-Guard modules
 from src.analyzer import CodeAnalyzer
 from src.remediator import CodeRemediator
 from src.test_generator import TestGenerator
 from src.reporter import ReportGenerator
-from src.bob_client import BobClient
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+from src.bob_client import BobClient, BobAPIError
 
 
-@click.group()
-@click.version_option(version='1.0.0')
-def cli():
+# ANSI color codes for terminal output
+class Colors:
+    """Terminal color codes for pretty output"""
+    HEADER = '\033[95m'
+    BLUE = '\033[94m'
+    CYAN = '\033[96m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+    END = '\033[0m'
+
+
+def print_header():
+    """Print Bob-Guard ASCII art header"""
+    header = f"""
+{Colors.CYAN}{Colors.BOLD}
+╔══════════════════════════════════════════════════════════════╗
+║                                                              ║
+║   ██████╗  ██████╗ ██████╗        ██████╗ ██╗   ██╗ █████╗  ║
+║   ██╔══██╗██╔═══██╗██╔══██╗      ██╔════╝ ██║   ██║██╔══██╗ ║
+║   ██████╔╝██║   ██║██████╔╝█████╗██║  ███╗██║   ██║███████║ ║
+║   ██╔══██╗██║   ██║██╔══██╗╚════╝██║   ██║██║   ██║██╔══██║ ║
+║   ██████╔╝╚██████╔╝██████╔╝      ╚██████╔╝╚██████╔╝██║  ██║ ║
+║   ╚═════╝  ╚═════╝ ╚═════╝        ╚═════╝  ╚═════╝ ╚═╝  ╚═╝ ║
+║                                                              ║
+║        Automated Compliance & Security Analysis Agent       ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
+{Colors.END}
     """
-    Bob-Guard: Automated Compliance & Security Analysis Agent
-    
-    Analyze legacy codebases for compliance violations and security issues,
-    then automatically propose and apply fixes.
+    print(header)
+
+
+def print_step(step_num: int, total_steps: int, message: str):
+    """Print current step with formatting"""
+    print(f"\n{Colors.BOLD}{Colors.BLUE}[Step {step_num}/{total_steps}]{Colors.END} {message}")
+    print("─" * 60)
+
+
+def print_success(message: str):
+    """Print success message"""
+    print(f"{Colors.GREEN}✓{Colors.END} {message}")
+
+
+def print_error(message: str):
+    """Print error message"""
+    print(f"{Colors.RED}✗{Colors.END} {message}")
+
+
+def print_warning(message: str):
+    """Print warning message"""
+    print(f"{Colors.YELLOW}⚠{Colors.END} {message}")
+
+
+def print_info(message: str):
+    """Print info message"""
+    print(f"{Colors.CYAN}ℹ{Colors.END} {message}")
+
+
+def load_rules(config_path: str = "config/rules.json") -> Dict[str, Any]:
     """
-    pass
-
-
-@cli.command()
-@click.option('--repo', '-r', required=True, help='Path to repository to analyze')
-@click.option('--config', '-c', default='config/rules.json', help='Path to rules configuration')
-@click.option('--output', '-o', default='output', help='Output directory for reports')
-@click.option('--format', '-f', type=click.Choice(['html', 'json', 'markdown']), 
-              default='html', help='Report format')
-@click.option('--verbose', '-v', is_flag=True, help='Enable verbose output')
-def analyze(repo: str, config: str, output: str, format: str, verbose: bool):
-    """Analyze a repository for compliance and security issues."""
-    if verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
+    Load compliance rules from configuration file.
     
-    click.echo(f"🔍 Analyzing repository: {repo}")
+    Args:
+        config_path: Path to rules configuration file
+        
+    Returns:
+        Dictionary containing rules configuration
+        
+    Raises:
+        FileNotFoundError: If config file doesn't exist
+        json.JSONDecodeError: If config file is invalid JSON
+    """
+    config_file = Path(config_path)
     
-    try:
-        # Initialize analyzer
-        analyzer = CodeAnalyzer(config_path=config)
-        
-        # Run analysis
-        result = analyzer.analyze_repository(repo)
-        
-        # Generate report
-        reporter = ReportGenerator(output_dir=output)
-        report_path = reporter.generate_analysis_report(result, format=format)
-        
-        # Display summary
-        click.echo(f"\n✅ Analysis complete!")
-        click.echo(f"📊 Total violations: {len(result.violations)}")
-        click.echo(f"📁 Analyzed files: {result.analyzed_files}/{result.total_files}")
-        click.echo(f"📄 Report generated: {report_path}")
-        
-        # Display severity breakdown
-        click.echo("\n📈 Violations by severity:")
-        for severity, count in result.summary['by_severity'].items():
-            click.echo(f"  {severity.capitalize()}: {count}")
-        
-        # Exit with error code if critical violations found
-        if result.summary['by_severity'].get('critical', 0) > 0:
-            sys.exit(1)
-            
-    except Exception as e:
-        click.echo(f"❌ Error during analysis: {e}", err=True)
-        if verbose:
-            raise
-        sys.exit(1)
+    if not config_file.exists():
+        raise FileNotFoundError(f"Rules configuration not found: {config_path}")
+    
+    with open(config_file, 'r') as f:
+        return json.load(f)
 
 
-@cli.command()
-@click.option('--repo', '-r', required=True, help='Path to repository to remediate')
-@click.option('--config', '-c', default='config/rules.json', help='Path to rules configuration')
-@click.option('--output', '-o', default='output', help='Output directory')
-@click.option('--auto-apply', is_flag=True, help='Automatically apply fixes without confirmation')
-@click.option('--min-confidence', type=float, default=0.7, 
-              help='Minimum confidence threshold for applying fixes (0.0-1.0)')
-@click.option('--backup/--no-backup', default=True, help='Create backups before applying fixes')
-@click.option('--verbose', '-v', is_flag=True, help='Enable verbose output')
-def remediate(repo: str, config: str, output: str, auto_apply: bool, 
-              min_confidence: float, backup: bool, verbose: bool):
-    """Generate and apply fixes for detected violations."""
-    if verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
+def validate_repository(repo_path: str) -> Path:
+    """
+    Validate that repository path exists and is accessible.
     
-    click.echo(f"🔧 Remediating repository: {repo}")
+    Args:
+        repo_path: Path to repository
+        
+    Returns:
+        Path object for the repository
+        
+    Raises:
+        ValueError: If path doesn't exist or is not a directory
+    """
+    repo = Path(repo_path)
     
-    try:
-        # First, analyze the repository
-        click.echo("Step 1: Analyzing repository...")
-        analyzer = CodeAnalyzer(config_path=config)
-        analysis_result = analyzer.analyze_repository(repo)
-        
-        if not analysis_result.violations:
-            click.echo("✅ No violations found. Nothing to remediate.")
-            return
-        
-        click.echo(f"Found {len(analysis_result.violations)} violations")
-        
-        # Generate fixes
-        click.echo("\nStep 2: Generating fixes...")
-        remediator = CodeRemediator(backup_dir=f"{output}/backups")
-        fixes = remediator.generate_fixes(analysis_result.violations, min_confidence)
-        
-        click.echo(f"Generated {len(fixes)} fixes")
-        
-        if not fixes:
-            click.echo("⚠️  No fixes could be generated.")
-            return
-        
-        # Apply fixes
-        click.echo("\nStep 3: Applying fixes...")
-        if not auto_apply:
-            if not click.confirm(f"Apply {len(fixes)} fixes?"):
-                click.echo("Remediation cancelled.")
-                return
-        
-        remediation_result = remediator.apply_fixes(
-            fixes=fixes,
-            auto_apply=auto_apply,
-            create_backup=backup
-        )
-        
-        # Generate report
-        reporter = ReportGenerator(output_dir=output)
-        report_path = reporter.generate_remediation_report(remediation_result, format='html')
-        
-        # Display summary
-        click.echo(f"\n✅ Remediation complete!")
-        click.echo(f"✓ Fixes applied: {remediation_result.fixes_applied}")
-        click.echo(f"✗ Fixes failed: {remediation_result.fixes_failed}")
-        click.echo(f"📄 Report generated: {report_path}")
-        
-    except Exception as e:
-        click.echo(f"❌ Error during remediation: {e}", err=True)
-        if verbose:
-            raise
-        sys.exit(1)
+    if not repo.exists():
+        raise ValueError(f"Repository path does not exist: {repo_path}")
+    
+    if not repo.is_dir():
+        raise ValueError(f"Repository path is not a directory: {repo_path}")
+    
+    return repo
 
 
-@cli.command()
-@click.option('--repo', '-r', required=True, help='Path to repository')
-@click.option('--output', '-o', default='tests', help='Output directory for tests')
-@click.option('--verbose', '-v', is_flag=True, help='Enable verbose output')
-def generate_tests(repo: str, output: str, verbose: bool):
-    """Generate unit tests for code in repository."""
-    if verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
+def create_output_directory(output_path: str) -> Path:
+    """
+    Create output directory if it doesn't exist.
     
-    click.echo(f"🧪 Generating tests for: {repo}")
-    
-    try:
-        # Collect source files
-        repo_path = Path(repo)
-        source_files = list(repo_path.rglob('*.py'))  # Example: Python files
+    Args:
+        output_path: Path to output directory
         
-        if not source_files:
-            click.echo("⚠️  No source files found.")
-            return
-        
-        click.echo(f"Found {len(source_files)} source files")
-        
-        # Generate tests
-        test_generator = TestGenerator(test_dir=output)
-        
-        for file_path in source_files:
-            click.echo(f"Generating tests for {file_path.name}...")
-            test_generator.generate_tests_for_file(str(file_path))
-        
-        # Export results
-        test_generator.export_results(f"{output}/test_generation_report.json")
-        
-        click.echo(f"\n✅ Test generation complete!")
-        click.echo(f"📁 Tests written to: {output}")
-        
-    except Exception as e:
-        click.echo(f"❌ Error generating tests: {e}", err=True)
-        if verbose:
-            raise
-        sys.exit(1)
+    Returns:
+        Path object for the output directory
+    """
+    output_dir = Path(output_path)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    return output_dir
 
 
-@cli.command()
-@click.option('--repo', '-r', required=True, help='Path to repository')
-@click.option('--config', '-c', default='config/rules.json', help='Path to rules configuration')
-@click.option('--output', '-o', default='output', help='Output directory')
-@click.option('--auto-fix', is_flag=True, help='Automatically apply fixes')
-@click.option('--generate-tests', is_flag=True, help='Generate unit tests after remediation')
-@click.option('--min-confidence', type=float, default=0.7, help='Minimum fix confidence')
-@click.option('--format', '-f', type=click.Choice(['html', 'json', 'markdown']), 
-              default='html', help='Report format')
-@click.option('--verbose', '-v', is_flag=True, help='Enable verbose output')
-def run(repo: str, config: str, output: str, auto_fix: bool, generate_tests: bool,
-        min_confidence: float, format: str, verbose: bool):
-    """Run complete pipeline: analyze, remediate, and generate tests."""
-    if verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
+def print_summary(analysis_result, remediation_result, test_result, report_path: str):
+    """
+    Print final summary of the analysis pipeline.
     
-    click.echo("🚀 Starting Bob-Guard full pipeline")
-    click.echo(f"📁 Repository: {repo}\n")
+    Args:
+        analysis_result: Results from code analysis
+        remediation_result: Results from remediation
+        test_result: Results from test generation
+        report_path: Path to generated report
+    """
+    print(f"\n{Colors.BOLD}{Colors.GREEN}{'═' * 60}")
+    print("                    FINAL SUMMARY")
+    print(f"{'═' * 60}{Colors.END}\n")
+    
+    # Files scanned
+    print(f"{Colors.BOLD}📁 Files Scanned:{Colors.END}")
+    print(f"   Total files: {analysis_result.total_files}")
+    print(f"   Analyzed: {analysis_result.analyzed_files}")
+    
+    # Violations by category
+    print(f"\n{Colors.BOLD}🔍 Violations Detected:{Colors.END}")
+    print(f"   Total violations: {len(analysis_result.violations)}")
+    
+    if analysis_result.summary.get('by_category'):
+        print(f"\n   By Category:")
+        for category, count in analysis_result.summary['by_category'].items():
+            print(f"      • {category.upper()}: {count}")
+    
+    if analysis_result.summary.get('by_severity'):
+        print(f"\n   By Severity:")
+        severity_colors = {
+            'critical': Colors.RED,
+            'high': Colors.YELLOW,
+            'medium': Colors.CYAN,
+            'low': Colors.GREEN
+        }
+        for severity, count in analysis_result.summary['by_severity'].items():
+            color = severity_colors.get(severity.lower(), '')
+            print(f"      • {color}{severity.capitalize()}: {count}{Colors.END}")
+    
+    # Fixes applied
+    if remediation_result:
+        print(f"\n{Colors.BOLD}🔧 Remediation:{Colors.END}")
+        print(f"   Fixes generated: {remediation_result.fixes_generated}")
+        print(f"   Fixes applied: {remediation_result.fixes_applied}")
+        if remediation_result.fixes_failed > 0:
+            print(f"   {Colors.YELLOW}Fixes failed: {remediation_result.fixes_failed}{Colors.END}")
+    
+    # Tests generated
+    if test_result:
+        print(f"\n{Colors.BOLD}🧪 Test Generation:{Colors.END}")
+        print(f"   Test suites created: {len(test_result.test_suites)}")
+        print(f"   Total tests: {test_result.tests_generated}")
+    
+    # Report location
+    print(f"\n{Colors.BOLD}📄 Report:{Colors.END}")
+    print(f"   {report_path}")
+    
+    print(f"\n{Colors.GREEN}{'═' * 60}{Colors.END}")
+    print(f"{Colors.BOLD}Analysis complete! 🎉{Colors.END}\n")
+
+
+def main():
+    """
+    Main entry point for Bob-Guard CLI.
+    Orchestrates the complete analysis pipeline.
+    """
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(
+        description="Bob-Guard: Automated Compliance & Security Analysis Agent",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python main.py --repo ./my-project --output ./reports
+  python main.py --repo /path/to/legacy/code --output ./analysis-results
+        """
+    )
+    
+    parser.add_argument(
+        '--repo',
+        required=True,
+        help='Path to the repository to analyze'
+    )
+    
+    parser.add_argument(
+        '--output',
+        default='./output',
+        help='Output directory for reports and results (default: ./output)'
+    )
+    
+    parser.add_argument(
+        '--config',
+        default='config/rules.json',
+        help='Path to rules configuration file (default: config/rules.json)'
+    )
+    
+    parser.add_argument(
+        '--auto-fix',
+        action='store_true',
+        help='Automatically apply fixes (default: False)'
+    )
+    
+    parser.add_argument(
+        '--skip-tests',
+        action='store_true',
+        help='Skip test generation (default: False)'
+    )
+    
+    args = parser.parse_args()
+    
+    # Print header
+    print_header()
+    
+    # Start timestamp
+    start_time = datetime.now()
+    print_info(f"Started at: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
     
     try:
-        # Step 1: Analysis
-        click.echo("=" * 60)
-        click.echo("STEP 1: ANALYSIS")
-        click.echo("=" * 60)
+        # ============================================================
+        # INITIALIZATION
+        # ============================================================
+        print_step(0, 4, "Initializing Bob-Guard")
         
-        analyzer = CodeAnalyzer(config_path=config)
-        analysis_result = analyzer.analyze_repository(repo)
+        # Validate repository
+        print_info(f"Validating repository: {args.repo}")
+        repo_path = validate_repository(args.repo)
+        print_success(f"Repository validated: {repo_path}")
         
-        click.echo(f"✓ Found {len(analysis_result.violations)} violations")
+        # Create output directory
+        print_info(f"Creating output directory: {args.output}")
+        output_dir = create_output_directory(args.output)
+        print_success(f"Output directory ready: {output_dir}")
         
-        # Step 2: Remediation
-        if analysis_result.violations:
-            click.echo("\n" + "=" * 60)
-            click.echo("STEP 2: REMEDIATION")
-            click.echo("=" * 60)
-            
-            remediator = CodeRemediator(backup_dir=f"{output}/backups")
-            fixes = remediator.generate_fixes(analysis_result.violations, min_confidence)
-            
-            click.echo(f"✓ Generated {len(fixes)} fixes")
-            
-            if fixes:
-                if not auto_fix:
-                    if not click.confirm(f"Apply {len(fixes)} fixes?"):
-                        click.echo("Skipping remediation.")
-                        remediation_result = None
-                    else:
-                        remediation_result = remediator.apply_fixes(fixes, auto_apply=True)
-                else:
-                    remediation_result = remediator.apply_fixes(fixes, auto_apply=True)
-                
-                if remediation_result:
-                    click.echo(f"✓ Applied {remediation_result.fixes_applied} fixes")
+        # Load rules configuration
+        print_info(f"Loading rules from: {args.config}")
+        rules_config = load_rules(args.config)
+        total_rules = rules_config.get('metadata', {}).get('total_rules', 0)
+        print_success(f"Loaded {total_rules} compliance rules")
+        
+        # Initialize Bob API client
+        print_info("Connecting to IBM Bob API...")
+        try:
+            bob_client = BobClient()
+            if bob_client.health_check():
+                print_success("IBM Bob API connection established")
             else:
-                remediation_result = None
+                print_warning("IBM Bob API health check failed, continuing anyway...")
+        except BobAPIError as e:
+            print_warning(f"IBM Bob API not available: {e}")
+            print_info("Continuing with local analysis only...")
+            bob_client = None
+        
+        # ============================================================
+        # STEP 1: CODE ANALYSIS
+        # ============================================================
+        print_step(1, 4, "Analyzing Code for Violations")
+        
+        print_info("Initializing code analyzer...")
+        analyzer = CodeAnalyzer(config_path=args.config, bob_client=bob_client)
+        
+        print_info(f"Scanning repository: {repo_path}")
+        with tqdm(total=100, desc="Analyzing", ncols=80) as pbar:
+            pbar.update(20)
+            analysis_result = analyzer.analyze_repository(str(repo_path))
+            pbar.update(80)
+        
+        print_success(f"Analysis complete: {len(analysis_result.violations)} violations found")
+        print_info(f"Files analyzed: {analysis_result.analyzed_files}/{analysis_result.total_files}")
+        
+        # ============================================================
+        # STEP 2: AUTOMATED REMEDIATION
+        # ============================================================
+        print_step(2, 4, "Generating and Applying Fixes")
+        
+        remediation_result = None
+        
+        if analysis_result.violations:
+            print_info("Initializing remediator...")
+            remediator = CodeRemediator(
+                bob_client=bob_client,
+                backup_dir=str(output_dir / 'backups')
+            )
+            
+            print_info("Generating fixes for violations...")
+            with tqdm(total=len(analysis_result.violations), desc="Generating fixes", ncols=80) as pbar:
+                fixes = remediator.generate_fixes(analysis_result.violations, min_confidence=0.7)
+                pbar.update(len(analysis_result.violations))
+            
+            print_success(f"Generated {len(fixes)} fixes")
+            
+            if fixes and args.auto_fix:
+                print_info("Applying fixes automatically...")
+                with tqdm(total=len(fixes), desc="Applying fixes", ncols=80) as pbar:
+                    remediation_result = remediator.apply_fixes(
+                        fixes=fixes,
+                        auto_apply=True,
+                        create_backup=True
+                    )
+                    pbar.update(len(fixes))
+                
+                print_success(f"Applied {remediation_result.fixes_applied} fixes")
+                if remediation_result.fixes_failed > 0:
+                    print_warning(f"{remediation_result.fixes_failed} fixes failed")
+            else:
+                print_info("Skipping fix application (use --auto-fix to apply)")
         else:
-            remediation_result = None
-            click.echo("✓ No violations to remediate")
+            print_success("No violations found - repository is compliant! 🎉")
         
-        # Step 3: Test Generation
+        # ============================================================
+        # STEP 3: TEST GENERATION
+        # ============================================================
+        print_step(3, 4, "Generating Validation Tests")
+        
         test_result = None
-        if generate_tests and remediation_result and remediation_result.fixes_applied > 0:
-            click.echo("\n" + "=" * 60)
-            click.echo("STEP 3: TEST GENERATION")
-            click.echo("=" * 60)
-            
-            test_generator = TestGenerator(test_dir='tests')
-            test_result = test_generator.generate_tests_for_fixes(remediation_result.fixes)
-            
-            click.echo(f"✓ Generated {test_result.tests_generated} tests")
         
-        # Step 4: Report Generation
-        click.echo("\n" + "=" * 60)
-        click.echo("STEP 4: REPORT GENERATION")
-        click.echo("=" * 60)
+        if not args.skip_tests and remediation_result and remediation_result.fixes_applied > 0:
+            print_info("Initializing test generator...")
+            test_generator = TestGenerator(
+                bob_client=bob_client,
+                test_dir=str(output_dir / 'tests')
+            )
+            
+            print_info("Generating unit tests for fixed code...")
+            with tqdm(total=len(remediation_result.fixes), desc="Generating tests", ncols=80) as pbar:
+                test_result = test_generator.generate_tests_for_fixes(remediation_result.fixes)
+                pbar.update(len(remediation_result.fixes))
+            
+            print_success(f"Generated {test_result.tests_generated} tests in {len(test_result.test_suites)} test suites")
+        else:
+            if args.skip_tests:
+                print_info("Test generation skipped (--skip-tests flag)")
+            else:
+                print_info("No fixes applied - skipping test generation")
         
-        reporter = ReportGenerator(output_dir=output)
-        report_path = reporter.generate_combined_report(
-            analysis_result,
-            remediation_result,
-            test_result,
-            format=format
+        # ============================================================
+        # STEP 4: REPORT GENERATION
+        # ============================================================
+        print_step(4, 4, "Generating Final Report")
+        
+        print_info("Initializing report generator...")
+        reporter = ReportGenerator(
+            template_dir='templates',
+            output_dir=str(output_dir)
         )
         
-        click.echo(f"✓ Report generated: {report_path}")
+        print_info("Creating comprehensive report...")
+        with tqdm(total=100, desc="Generating report", ncols=80) as pbar:
+            pbar.update(30)
+            report_path = reporter.generate_combined_report(
+                analysis_result=analysis_result,
+                remediation_result=remediation_result,
+                test_result=test_result,
+                format='html'
+            )
+            pbar.update(70)
         
-        # Final summary
-        click.echo("\n" + "=" * 60)
-        click.echo("PIPELINE COMPLETE")
-        click.echo("=" * 60)
-        click.echo(f"📊 Violations found: {len(analysis_result.violations)}")
-        if remediation_result:
-            click.echo(f"🔧 Fixes applied: {remediation_result.fixes_applied}")
-        if test_result:
-            click.echo(f"🧪 Tests generated: {test_result.tests_generated}")
-        click.echo(f"📄 Report: {report_path}")
+        print_success(f"Report generated: {report_path}")
         
-    except Exception as e:
-        click.echo(f"\n❌ Pipeline error: {e}", err=True)
-        if verbose:
-            raise
-        sys.exit(1)
-
-
-@cli.command()
-@click.option('--port', '-p', default=5000, help='Port to run web server on')
-def serve(port: int):
-    """Start the Bob-Guard web interface."""
-    click.echo(f"🌐 Starting Bob-Guard web server on port {port}...")
-    click.echo(f"📱 Open http://localhost:{port} in your browser")
+        # ============================================================
+        # FINAL SUMMARY
+        # ============================================================
+        end_time = datetime.now()
+        duration = (end_time - start_time).total_seconds()
+        
+        print_summary(analysis_result, remediation_result, test_result, report_path)
+        
+        print_info(f"Total execution time: {duration:.2f} seconds")
+        
+        # Exit with appropriate code
+        if analysis_result.summary.get('by_severity', {}).get('critical', 0) > 0:
+            print_warning("Critical violations found - review required!")
+            sys.exit(1)
+        else:
+            sys.exit(0)
     
-    try:
-        # Import and run Flask app
-        from app import app
-        app.run(host='0.0.0.0', port=port, debug=True)
-    except ImportError:
-        click.echo("❌ Flask app not found. Make sure app.py exists.", err=True)
+    except FileNotFoundError as e:
+        print_error(f"File not found: {e}")
         sys.exit(1)
+    
+    except ValueError as e:
+        print_error(f"Invalid input: {e}")
+        sys.exit(1)
+    
+    except BobAPIError as e:
+        print_error(f"IBM Bob API error: {e}")
+        print_info("Check your API credentials in .env file")
+        sys.exit(1)
+    
+    except KeyboardInterrupt:
+        print_warning("\n\nAnalysis interrupted by user")
+        sys.exit(130)
+    
     except Exception as e:
-        click.echo(f"❌ Error starting server: {e}", err=True)
+        print_error(f"Unexpected error: {e}")
+        print_info("Please report this issue with the full error message")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
-
-
-@cli.command()
-def version():
-    """Display version information."""
-    click.echo("Bob-Guard v1.0.0")
-    click.echo("Automated Compliance & Security Analysis Agent")
-    click.echo("\nComponents:")
-    click.echo("  - Code Analyzer")
-    click.echo("  - Automated Remediator")
-    click.echo("  - Test Generator")
-    click.echo("  - Report Generator")
-    click.echo("  - IBM Bob API Integration")
 
 
 if __name__ == '__main__':
-    cli()
+    main()
 
 # Made with Bob

@@ -1,239 +1,255 @@
 {
-  "gdpr": {
-    "enabled": true,
-    "description": "General Data Protection Regulation compliance rules",
-    "rules": [
-      {
-        "id": "gdpr-001",
-        "name": "Personal Data Collection Without Consent",
-        "severity": "critical",
-        "description": "Detect collection of personal data without explicit user consent",
-        "patterns": [
-          "collect.*personal.*data",
-          "user.*email.*without.*consent",
-          "store.*pii.*without.*permission"
-        ]
-      },
-      {
-        "id": "gdpr-002",
-        "name": "Data Retention Policy Violation",
-        "severity": "high",
-        "description": "Data stored beyond required retention period",
-        "patterns": [
-          "permanent.*storage.*user.*data",
-          "no.*deletion.*policy"
-        ]
-      },
-      {
-        "id": "gdpr-003",
-        "name": "Missing Data Encryption",
-        "severity": "critical",
-        "description": "Personal data stored or transmitted without encryption",
-        "patterns": [
-          "plaintext.*password",
-          "unencrypted.*personal.*data",
-          "http.*sensitive.*data"
-        ]
-      },
-      {
-        "id": "gdpr-004",
-        "name": "Right to be Forgotten Not Implemented",
-        "severity": "high",
-        "description": "Missing implementation of user data deletion",
-        "patterns": [
-          "no.*delete.*user.*method",
-          "missing.*data.*removal"
-        ]
-      }
-    ]
-  },
-  "hipaa": {
-    "enabled": true,
-    "description": "Health Insurance Portability and Accountability Act compliance rules",
-    "rules": [
-      {
-        "id": "hipaa-001",
-        "name": "PHI Exposure",
-        "severity": "critical",
-        "description": "Protected Health Information exposed without proper safeguards",
-        "patterns": [
-          "phi.*unencrypted",
-          "health.*data.*plaintext",
-          "medical.*record.*exposed"
-        ]
-      },
-      {
-        "id": "hipaa-002",
-        "name": "Insufficient Access Controls",
-        "severity": "high",
-        "description": "Missing or weak access controls for health data",
-        "patterns": [
-          "no.*authentication.*health.*data",
-          "public.*medical.*records",
-          "unrestricted.*phi.*access"
-        ]
-      },
-      {
-        "id": "hipaa-003",
-        "name": "Missing Audit Logs",
-        "severity": "high",
-        "description": "No audit trail for PHI access",
-        "patterns": [
-          "no.*logging.*phi.*access",
-          "missing.*audit.*trail.*health"
-        ]
-      },
-      {
-        "id": "hipaa-004",
-        "name": "Insecure PHI Transmission",
-        "severity": "critical",
-        "description": "Health data transmitted over insecure channels",
-        "patterns": [
-          "http.*phi",
-          "unencrypted.*health.*transmission",
-          "ftp.*medical.*data"
-        ]
-      }
-    ]
-  },
-  "security": {
-    "enabled": true,
-    "description": "General security vulnerability rules",
-    "rules": [
-      {
-        "id": "sec-001",
-        "name": "SQL Injection Vulnerability",
-        "severity": "critical",
-        "description": "Potential SQL injection through unsanitized input",
-        "patterns": [
-          "execute.*\\+.*user.*input",
-          "query.*string.*concatenation",
-          "sql.*format.*user"
-        ],
-        "cwe": "CWE-89"
-      },
-      {
-        "id": "sec-002",
-        "name": "Cross-Site Scripting (XSS)",
-        "severity": "high",
-        "description": "Potential XSS vulnerability through unescaped output",
-        "patterns": [
-          "innerHTML.*user.*input",
-          "document.write.*unescaped",
-          "eval.*user.*data"
-        ],
-        "cwe": "CWE-79"
-      },
-      {
-        "id": "sec-003",
-        "name": "Hardcoded Credentials",
-        "severity": "critical",
-        "description": "Credentials hardcoded in source code",
-        "patterns": [
-          "password\\s*=\\s*['\"]",
-          "api_key\\s*=\\s*['\"]",
-          "secret\\s*=\\s*['\"]"
-        ],
-        "cwe": "CWE-798"
-      },
-      {
-        "id": "sec-004",
-        "name": "Insecure Cryptography",
-        "severity": "high",
-        "description": "Use of weak or deprecated cryptographic algorithms",
-        "patterns": [
-          "md5\\(",
-          "sha1\\(",
-          "DES\\(",
-          "RC4"
-        ],
-        "cwe": "CWE-327"
-      },
-      {
-        "id": "sec-005",
-        "name": "Path Traversal",
-        "severity": "high",
-        "description": "Potential path traversal vulnerability",
-        "patterns": [
-          "open.*user.*input",
-          "file.*path.*concatenation",
-          "\\.\\.\\/.*user"
-        ],
-        "cwe": "CWE-22"
-      },
-      {
-        "id": "sec-006",
-        "name": "Command Injection",
-        "severity": "critical",
-        "description": "Potential command injection through unsanitized input",
-        "patterns": [
-          "exec.*user.*input",
-          "system.*user.*data",
-          "shell.*user"
-        ],
-        "cwe": "CWE-78"
-      },
-      {
-        "id": "sec-007",
-        "name": "Insecure Deserialization",
-        "severity": "critical",
-        "description": "Unsafe deserialization of untrusted data",
-        "patterns": [
-          "pickle.loads.*user",
-          "yaml.load.*unsafe",
-          "unserialize.*user"
-        ],
-        "cwe": "CWE-502"
-      },
-      {
-        "id": "sec-008",
-        "name": "Missing Authentication",
-        "severity": "high",
-        "description": "Sensitive operations without authentication",
-        "patterns": [
-          "no.*auth.*check",
-          "public.*admin.*function",
-          "unauthenticated.*sensitive"
-        ],
-        "cwe": "CWE-306"
-      },
-      {
-        "id": "sec-009",
-        "name": "Insufficient Logging",
-        "severity": "medium",
-        "description": "Security events not properly logged",
-        "patterns": [
-          "no.*logging.*security",
-          "missing.*audit.*log"
-        ],
-        "cwe": "CWE-778"
-      },
-      {
-        "id": "sec-010",
-        "name": "Insecure Random Number Generation",
-        "severity": "medium",
-        "description": "Use of predictable random number generators",
-        "patterns": [
-          "random.random\\(",
-          "Math.random\\(",
-          "rand\\("
-        ],
-        "cwe": "CWE-338"
-      }
-    ]
-  },
-  "custom": {
-    "enabled": false,
-    "description": "Custom organization-specific compliance rules",
-    "rules": []
-  },
-  "settings": {
-    "min_severity_level": "low",
-    "fail_on_critical": true,
-    "fail_on_high": false,
-    "auto_fix_enabled": false,
-    "backup_before_fix": true,
-    "generate_tests": true,
-    "report_format": "html"
+  "rules": [
+    {
+      "id": "SEC-001",
+      "category": "SECURITY",
+      "severity": "CRITICAL",
+      "name": "Hardcoded Password",
+      "description": "Detects hardcoded passwords in source code. Passwords should never be stored in code as they can be easily discovered through version control or code inspection.",
+      "pattern": "(password|passwd|pwd)\\s*=\\s*['\"][^'\"]+['\"]",
+      "languages": ["python", "javascript", "java", "php", "ruby"],
+      "remediation_hint": "Replace hardcoded password with environment variable or secure credential management system (e.g., AWS Secrets Manager, HashiCorp Vault). Use os.getenv() in Python, process.env in JavaScript.",
+      "example_violation": "password = \"MySecretPass123\"",
+      "example_fix": "password = os.getenv('DB_PASSWORD')"
+    },
+    {
+      "id": "SEC-002",
+      "category": "SECURITY",
+      "severity": "CRITICAL",
+      "name": "Hardcoded API Key",
+      "description": "Detects hardcoded API keys, tokens, or secrets in source code. These credentials should be stored securely and never committed to version control.",
+      "pattern": "(api[_-]?key|api[_-]?secret|access[_-]?token|auth[_-]?token)\\s*=\\s*['\"][a-zA-Z0-9_\\-]{20,}['\"]",
+      "languages": ["python", "javascript", "java", "php", "ruby", "go"],
+      "remediation_hint": "Move API keys to environment variables or secure configuration management. Use .env files (excluded from git) or cloud secret managers. Never commit credentials to version control.",
+      "example_violation": "api_key = \"REDACTED_API_KEY\"",
+      "example_fix": "api_key = os.getenv('STRIPE_API_KEY')"
+    },
+    {
+      "id": "SEC-003",
+      "category": "SECURITY",
+      "severity": "CRITICAL",
+      "name": "SQL Injection Vulnerability",
+      "description": "Detects potential SQL injection vulnerabilities where user input is directly concatenated into SQL queries without proper sanitization or parameterization.",
+      "pattern": "(execute|query|cursor\\.execute)\\s*\\([^)]*\\+[^)]*\\)",
+      "languages": ["python", "java", "php", "ruby"],
+      "remediation_hint": "Use parameterized queries or prepared statements. In Python, use cursor.execute with placeholders (?). In Java, use PreparedStatement. Never concatenate user input directly into SQL queries.",
+      "example_violation": "cursor.execute(\"SELECT * FROM users WHERE id = \" + user_id)",
+      "example_fix": "cursor.execute(\"SELECT * FROM users WHERE id = ?\", (user_id,))"
+    },
+    {
+      "id": "SEC-004",
+      "category": "SECURITY",
+      "severity": "HIGH",
+      "name": "Cross-Site Scripting (XSS)",
+      "description": "Detects potential XSS vulnerabilities where user input is rendered in HTML without proper escaping or sanitization.",
+      "pattern": "(innerHTML|outerHTML|document\\.write)\\s*=\\s*[^;]*(?!escape|sanitize)",
+      "languages": ["javascript", "typescript"],
+      "remediation_hint": "Always escape user input before rendering in HTML. Use textContent instead of innerHTML for plain text. Use DOMPurify or similar libraries to sanitize HTML. Implement Content Security Policy (CSP).",
+      "example_violation": "element.innerHTML = userInput;",
+      "example_fix": "element.textContent = userInput; // or use DOMPurify.sanitize(userInput)"
+    },
+    {
+      "id": "SEC-005",
+      "category": "SECURITY",
+      "severity": "HIGH",
+      "name": "Insecure HTTP Connection",
+      "description": "Detects use of insecure HTTP protocol for sensitive data transmission. All sensitive data should be transmitted over HTTPS.",
+      "pattern": "http://(?!localhost|127\\.0\\.0\\.1)",
+      "languages": ["python", "javascript", "java", "php", "ruby", "go"],
+      "remediation_hint": "Replace HTTP with HTTPS for all external connections. Ensure SSL/TLS certificates are properly configured. Use HSTS headers to enforce HTTPS.",
+      "example_violation": "url = \"http://api.example.com/user/data\"",
+      "example_fix": "url = \"https://api.example.com/user/data\""
+    },
+    {
+      "id": "GDPR-001",
+      "category": "GDPR",
+      "severity": "CRITICAL",
+      "name": "Unmasked Email Address",
+      "description": "Detects email addresses stored or logged without masking. Under GDPR, personal data like email addresses should be protected and masked in logs.",
+      "pattern": "log|print|console\\.log.*[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}",
+      "languages": ["python", "javascript", "java", "php", "ruby"],
+      "remediation_hint": "Mask email addresses in logs by showing only first character and domain (e.g., j***@example.com). Implement data masking function for PII. Avoid logging personal data unless absolutely necessary.",
+      "example_violation": "logger.info(f\"User email: {user.email}\")",
+      "example_fix": "logger.info(f\"User email: {mask_email(user.email)}\")"
+    },
+    {
+      "id": "GDPR-002",
+      "category": "GDPR",
+      "severity": "HIGH",
+      "name": "Unencrypted Personal Data Storage",
+      "description": "Detects storage of personal data without encryption. GDPR requires appropriate security measures including encryption for personal data.",
+      "pattern": "(save|store|write).*(?!encrypt|hash).*\\b(email|phone|address|ssn|name)\\b",
+      "languages": ["python", "javascript", "java", "php"],
+      "remediation_hint": "Encrypt personal data before storage using AES-256 or similar strong encryption. Use database-level encryption or application-level encryption. Implement proper key management.",
+      "example_violation": "db.save({'email': user_email, 'phone': user_phone})",
+      "example_fix": "db.save({'email': encrypt(user_email), 'phone': encrypt(user_phone)})"
+    },
+    {
+      "id": "GDPR-003",
+      "category": "GDPR",
+      "severity": "HIGH",
+      "name": "Missing Data Retention Policy",
+      "description": "Detects data storage without expiration or deletion mechanism. GDPR requires data to be kept only as long as necessary.",
+      "pattern": "(?!.*delete|.*expire|.*ttl).*\\b(store|save|insert)\\b.*\\b(user|personal|customer)\\b",
+      "languages": ["python", "javascript", "java", "php"],
+      "remediation_hint": "Implement data retention policies with automatic deletion after specified period. Add TTL (Time To Live) to stored data. Create scheduled jobs to purge old data. Document retention periods.",
+      "example_violation": "db.users.insert({'name': name, 'email': email})",
+      "example_fix": "db.users.insert({'name': name, 'email': email, 'expires_at': datetime.now() + timedelta(days=365)})"
+    },
+    {
+      "id": "HIPAA-001",
+      "category": "HIPAA",
+      "severity": "CRITICAL",
+      "name": "Unencrypted PHI Transmission",
+      "description": "Detects transmission of Protected Health Information (PHI) without encryption. HIPAA requires encryption of PHI in transit.",
+      "pattern": "(?!https).*\\b(medical|health|patient|diagnosis|prescription)\\b.*\\b(send|transmit|post)\\b",
+      "languages": ["python", "javascript", "java", "php"],
+      "remediation_hint": "Use HTTPS/TLS for all PHI transmission. Implement end-to-end encryption for sensitive health data. Use secure messaging protocols. Ensure minimum TLS 1.2.",
+      "example_violation": "requests.post('http://api.hospital.com/patient', data=patient_data)",
+      "example_fix": "requests.post('https://api.hospital.com/patient', data=patient_data, verify=True)"
+    },
+    {
+      "id": "HIPAA-002",
+      "category": "HIPAA",
+      "severity": "CRITICAL",
+      "name": "PHI in Logs",
+      "description": "Detects logging of Protected Health Information. HIPAA prohibits logging of PHI without proper safeguards and access controls.",
+      "pattern": "log|print|console\\.log.*\\b(ssn|social.security|medical.record|diagnosis|patient.id)\\b",
+      "languages": ["python", "javascript", "java", "php", "ruby"],
+      "remediation_hint": "Remove PHI from logs entirely. If logging is necessary, use de-identified data or secure audit logs with access controls. Implement log sanitization to remove sensitive data.",
+      "example_violation": "logger.info(f\"Processing patient SSN: {patient.ssn}\")",
+      "example_fix": "logger.info(f\"Processing patient ID: {hash_identifier(patient.id)}\")"
+    },
+    {
+      "id": "SEC-006",
+      "category": "SECURITY",
+      "severity": "HIGH",
+      "name": "Weak Cryptographic Algorithm",
+      "description": "Detects use of weak or deprecated cryptographic algorithms like MD5, SHA1, or DES that are no longer considered secure.",
+      "pattern": "\\b(md5|sha1|des|rc4)\\b",
+      "languages": ["python", "javascript", "java", "php", "ruby"],
+      "remediation_hint": "Replace weak algorithms with strong alternatives: Use SHA-256 or SHA-3 instead of MD5/SHA1. Use AES-256 instead of DES. Use bcrypt or Argon2 for password hashing.",
+      "example_violation": "import hashlib; hash = hashlib.md5(password.encode()).hexdigest()",
+      "example_fix": "import hashlib; hash = hashlib.sha256(password.encode()).hexdigest()"
+    },
+    {
+      "id": "SEC-007",
+      "category": "SECURITY",
+      "severity": "CRITICAL",
+      "name": "Command Injection",
+      "description": "Detects potential command injection vulnerabilities where user input is passed to system commands without proper sanitization.",
+      "pattern": "(os\\.system|subprocess\\.call|exec|eval)\\s*\\([^)]*\\+[^)]*\\)",
+      "languages": ["python", "javascript", "php", "ruby"],
+      "remediation_hint": "Never pass user input directly to system commands. Use subprocess with argument lists instead of shell=True. Validate and sanitize all input. Use allowlists for permitted values.",
+      "example_violation": "os.system('ls ' + user_directory)",
+      "example_fix": "subprocess.run(['ls', user_directory], check=True)"
+    },
+    {
+      "id": "SEC-008",
+      "category": "SECURITY",
+      "severity": "MEDIUM",
+      "name": "Insecure Random Number Generation",
+      "description": "Detects use of insecure random number generators for security-sensitive operations. Predictable random numbers can compromise security.",
+      "pattern": "\\b(random\\.random|Math\\.random|rand\\(\\))\\b",
+      "languages": ["python", "javascript", "java", "php"],
+      "remediation_hint": "Use cryptographically secure random number generators: secrets module in Python, crypto.randomBytes in Node.js, SecureRandom in Java. Never use standard random for security tokens or cryptographic keys.",
+      "example_violation": "token = str(random.randint(100000, 999999))",
+      "example_fix": "import secrets; token = secrets.token_urlsafe(32)"
+    },
+    {
+      "id": "QUALITY-001",
+      "category": "QUALITY",
+      "severity": "MEDIUM",
+      "name": "Bare Exception Handling",
+      "description": "Detects overly broad exception handling that catches all exceptions, potentially hiding bugs and making debugging difficult.",
+      "pattern": "except\\s*:|catch\\s*\\(\\s*\\)|catch\\s*\\(Exception\\s+e\\)",
+      "languages": ["python", "java", "javascript"],
+      "remediation_hint": "Catch specific exceptions only. Handle different exception types appropriately. Log exceptions with full stack traces. Never silently ignore exceptions.",
+      "example_violation": "try:\n    risky_operation()\nexcept:\n    pass",
+      "example_fix": "try:\n    risky_operation()\nexcept ValueError as e:\n    logger.error(f\"Invalid value: {e}\")\n    raise"
+    },
+    {
+      "id": "SEC-009",
+      "category": "SECURITY",
+      "severity": "HIGH",
+      "name": "Unvalidated Redirect",
+      "description": "Detects open redirect vulnerabilities where user-controlled input is used in redirects without validation.",
+      "pattern": "(redirect|location\\.href|window\\.location)\\s*=\\s*[^;]*(?!validate|whitelist)",
+      "languages": ["javascript", "python", "java", "php"],
+      "remediation_hint": "Validate redirect URLs against a whitelist of allowed domains. Use relative URLs when possible. Implement URL validation to prevent open redirects to malicious sites.",
+      "example_violation": "return redirect(request.args.get('next'))",
+      "example_fix": "next_url = request.args.get('next')\nif is_safe_url(next_url):\n    return redirect(next_url)\nelse:\n    return redirect('/')"
+    },
+    {
+      "id": "GDPR-004",
+      "category": "GDPR",
+      "severity": "HIGH",
+      "name": "Credit Card Number Exposure",
+      "description": "Detects credit card numbers stored or logged without proper masking. PCI-DSS and GDPR require protection of payment card data.",
+      "pattern": "\\b\\d{4}[\\s-]?\\d{4}[\\s-]?\\d{4}[\\s-]?\\d{4}\\b",
+      "languages": ["python", "javascript", "java", "php", "ruby"],
+      "remediation_hint": "Never store full credit card numbers. Use tokenization services. Mask all but last 4 digits for display. Comply with PCI-DSS requirements. Use payment gateway APIs.",
+      "example_violation": "logger.info(f\"Processing card: {card_number}\")",
+      "example_fix": "logger.info(f\"Processing card: ****-****-****-{card_number[-4:]}\")"
+    },
+    {
+      "id": "SEC-010",
+      "category": "SECURITY",
+      "severity": "HIGH",
+      "name": "Path Traversal Vulnerability",
+      "description": "Detects potential path traversal vulnerabilities where user input is used in file paths without proper validation.",
+      "pattern": "(open|read|write)\\s*\\([^)]*\\+[^)]*\\)|\\.\\.[\\\\/]",
+      "languages": ["python", "javascript", "java", "php"],
+      "remediation_hint": "Validate and sanitize file paths. Use os.path.join() or Path() for safe path construction. Implement allowlist of permitted directories. Check for path traversal patterns (.., ./).",
+      "example_violation": "with open('/var/data/' + filename) as f:",
+      "example_fix": "from pathlib import Path\nsafe_path = Path('/var/data').joinpath(filename).resolve()\nif safe_path.is_relative_to('/var/data'):\n    with open(safe_path) as f:"
+    },
+    {
+      "id": "HIPAA-003",
+      "category": "HIPAA",
+      "severity": "CRITICAL",
+      "name": "Missing Access Control for PHI",
+      "description": "Detects access to Protected Health Information without proper authentication or authorization checks.",
+      "pattern": "(?!.*authenticate|.*authorize|.*check_permission).*\\b(patient|medical|health).*\\b(get|fetch|retrieve)\\b",
+      "languages": ["python", "javascript", "java", "php"],
+      "remediation_hint": "Implement role-based access control (RBAC) for all PHI access. Verify user authentication and authorization before granting access. Log all PHI access attempts. Implement audit trails.",
+      "example_violation": "def get_patient_record(patient_id):\n    return db.query(Patient).filter_by(id=patient_id).first()",
+      "example_fix": "def get_patient_record(patient_id, user):\n    if not user.has_permission('view_patient'):\n        raise PermissionError()\n    audit_log.record(user, 'access_patient', patient_id)\n    return db.query(Patient).filter_by(id=patient_id).first()"
+    },
+    {
+      "id": "SEC-011",
+      "category": "SECURITY",
+      "severity": "MEDIUM",
+      "name": "Insecure Deserialization",
+      "description": "Detects use of insecure deserialization that can lead to remote code execution vulnerabilities.",
+      "pattern": "(pickle\\.loads|yaml\\.load|unserialize)\\s*\\([^)]*(?!safe)",
+      "languages": ["python", "php", "java"],
+      "remediation_hint": "Use safe deserialization methods: yaml.safe_load() instead of yaml.load(), json.loads() instead of pickle. Validate serialized data before deserialization. Never deserialize untrusted data.",
+      "example_violation": "data = pickle.loads(user_input)",
+      "example_fix": "import json\ndata = json.loads(user_input)  # or use yaml.safe_load()"
+    },
+    {
+      "id": "GDPR-005",
+      "category": "GDPR",
+      "severity": "HIGH",
+      "name": "Missing Consent Tracking",
+      "description": "Detects collection of personal data without explicit consent tracking mechanism required by GDPR.",
+      "pattern": "(?!.*consent|.*agree|.*opt.in).*\\b(collect|store|save)\\b.*\\b(email|personal|user.data)\\b",
+      "languages": ["python", "javascript", "java", "php"],
+      "remediation_hint": "Implement consent tracking system. Store consent timestamp and type. Provide clear opt-in mechanisms. Allow users to withdraw consent. Document legal basis for data processing.",
+      "example_violation": "db.users.insert({'email': email, 'name': name})",
+      "example_fix": "db.users.insert({\n    'email': email,\n    'name': name,\n    'consent_given': True,\n    'consent_date': datetime.now(),\n    'consent_type': 'marketing'\n})"
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "last_updated": "2024-01-15",
+    "total_rules": 20,
+    "categories": {
+      "SECURITY": 11,
+      "GDPR": 5,
+      "HIPAA": 3,
+      "QUALITY": 1
+    }
   }
 }

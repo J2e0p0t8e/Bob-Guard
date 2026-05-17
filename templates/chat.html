@@ -5,6 +5,425 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat with Bob - Bob-Guard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        /* Chat-specific styles */
+        .chat-page-container {
+            display: flex;
+            gap: 2rem;
+            margin: 2rem 0;
+            height: calc(100vh - 250px);
+        }
+
+        /* Context Panel (Left) */
+        .context-panel {
+            flex: 0 0 30%;
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            padding: 1.5rem;
+            overflow-y: auto;
+        }
+
+        .context-panel h3 {
+            margin-bottom: 1rem;
+            color: var(--dark-color);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .context-stat {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 3px solid var(--primary-color);
+        }
+
+        .context-stat-label {
+            font-weight: 500;
+            color: var(--secondary-color);
+        }
+
+        .context-stat-value {
+            font-weight: 600;
+            color: var(--dark-color);
+        }
+
+        .risk-score {
+            text-align: center;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: var(--border-radius);
+            color: white;
+        }
+
+        .risk-score-value {
+            font-size: 3rem;
+            font-weight: bold;
+            margin: 0.5rem 0;
+        }
+
+        .risk-score-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .severity-breakdown {
+            margin-top: 1rem;
+        }
+
+        .severity-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+            border-radius: 6px;
+        }
+
+        .severity-item.critical {
+            background: #ffe0e0;
+            color: var(--critical-color);
+        }
+
+        .severity-item.high {
+            background: #fff3e0;
+            color: var(--high-color);
+        }
+
+        .severity-item.medium {
+            background: #fff9e0;
+            color: #d39e00;
+        }
+
+        .severity-item.low {
+            background: #e0f7e0;
+            color: var(--low-color);
+        }
+
+        /* Chat Panel (Right) */
+        .chat-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            overflow: hidden;
+        }
+
+        .chat-header {
+            padding: 1.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .chat-header h3 {
+            margin: 0;
+            font-size: 1.3rem;
+        }
+
+        /* Suggested Questions */
+        .suggested-questions {
+            padding: 1rem 1.5rem;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .suggested-questions-label {
+            font-size: 0.85rem;
+            color: var(--secondary-color);
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .question-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .question-chip {
+            padding: 0.5rem 1rem;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 0.85rem;
+            color: var(--dark-color);
+        }
+
+        .question-chip:hover {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+            transform: translateY(-2px);
+        }
+
+        /* Messages Area */
+        .chat-messages-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+            background: #f8f9fa;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .chat-message {
+            display: flex;
+            gap: 0.75rem;
+            animation: messageSlideIn 0.3s ease-out;
+        }
+
+        @keyframes messageSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .chat-message.user {
+            flex-direction: row-reverse;
+        }
+
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            flex-shrink: 0;
+        }
+
+        .user .message-avatar {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .bob .message-avatar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .message-bubble {
+            max-width: 70%;
+            padding: 1rem;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .user .message-bubble {
+            background: var(--primary-color);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .bob .message-bubble {
+            background: white;
+            color: var(--dark-color);
+            border-bottom-left-radius: 4px;
+            border-left: 3px solid #667eea;
+        }
+
+        .message-text {
+            line-height: 1.6;
+            word-wrap: break-word;
+        }
+
+        .message-time {
+            font-size: 0.75rem;
+            opacity: 0.7;
+            margin-top: 0.5rem;
+        }
+
+        /* Typing Indicator */
+        .typing-indicator {
+            display: none;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .typing-indicator.active {
+            display: flex;
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 0.25rem;
+            padding: 1rem;
+            background: white;
+            border-radius: 12px;
+            border-left: 3px solid #667eea;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--secondary-color);
+            border-radius: 50%;
+            animation: typingDot 1.4s infinite;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typingDot {
+            0%, 60%, 100% {
+                transform: translateY(0);
+                opacity: 0.7;
+            }
+            30% {
+                transform: translateY(-10px);
+                opacity: 1;
+            }
+        }
+
+        /* Input Area */
+        .chat-input-area {
+            padding: 1.5rem;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .input-wrapper {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: var(--border-radius);
+            font-family: var(--font-family);
+            font-size: 1rem;
+            resize: none;
+            min-height: 50px;
+            max-height: 150px;
+            transition: var(--transition);
+        }
+
+        .chat-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+
+        .send-button {
+            padding: 0.75rem 1.5rem;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-weight: 600;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .send-button:hover:not(:disabled) {
+            background: #0056b3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+        }
+
+        .send-button:disabled {
+            background: var(--secondary-color);
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        /* Empty State */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--secondary-color);
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        .empty-state h4 {
+            margin-bottom: 0.5rem;
+            color: var(--dark-color);
+        }
+
+        /* Loading State */
+        .loading-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            color: var(--secondary-color);
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 968px) {
+            .chat-page-container {
+                flex-direction: column;
+                height: auto;
+            }
+
+            .context-panel {
+                flex: 0 0 auto;
+                max-height: 300px;
+            }
+
+            .chat-panel {
+                min-height: 500px;
+            }
+
+            .message-bubble {
+                max-width: 85%;
+            }
+        }
+    </style>
 </head>
 <body>
     <nav class="navbar">
@@ -21,152 +440,110 @@
         </div>
     </nav>
 
-    <main class="container chat-container">
-        <section class="chat-header">
-            <h2>💬 Ask Bob About Your Code</h2>
-            <p>Get instant answers about compliance, security, and best practices</p>
-        </section>
-
-        <div class="chat-layout">
-            <!-- Chat Messages Area -->
-            <div class="chat-messages" id="chatMessages">
-                <div class="message bot-message">
-                    <div class="message-avatar">🤖</div>
-                    <div class="message-content">
-                        <div class="message-header">
-                            <span class="message-sender">Bob</span>
-                            <span class="message-time">Just now</span>
-                        </div>
-                        <div class="message-text">
-                            Hello! I'm Bob, your AI assistant for code compliance and security. 
-                            I can help you with:
-                            <ul>
-                                <li>Understanding compliance violations (GDPR, HIPAA)</li>
-                                <li>Explaining security vulnerabilities</li>
-                                <li>Suggesting code improvements</li>
-                                <li>Answering questions about best practices</li>
-                            </ul>
-                            How can I help you today?
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Quick Actions -->
-            <div class="quick-actions">
-                <h4>Quick Questions</h4>
-                <div class="quick-action-buttons">
-                    <button class="quick-action-btn" data-question="What is GDPR compliance?">
-                        What is GDPR compliance?
-                    </button>
-                    <button class="quick-action-btn" data-question="How do I fix SQL injection vulnerabilities?">
-                        How do I fix SQL injection?
-                    </button>
-                    <button class="quick-action-btn" data-question="What are common security best practices?">
-                        Security best practices
-                    </button>
-                    <button class="quick-action-btn" data-question="Explain HIPAA requirements">
-                        HIPAA requirements
-                    </button>
-                    <button class="quick-action-btn" data-question="How to handle sensitive data?">
-                        Handling sensitive data
-                    </button>
-                    <button class="quick-action-btn" data-question="What is XSS and how to prevent it?">
-                        Prevent XSS attacks
-                    </button>
-                </div>
-            </div>
-
-            <!-- Chat Input Area -->
-            <div class="chat-input-container">
-                <div class="chat-input-wrapper">
-                    <textarea 
-                        id="chatInput" 
-                        class="chat-input" 
-                        placeholder="Ask Bob a question about your code..."
-                        rows="3"
-                    ></textarea>
-                    <div class="chat-input-actions">
-                        <button class="btn btn-secondary btn-small" id="attachCodeBtn" title="Attach code snippet">
-                            📎 Attach Code
-                        </button>
-                        <button class="btn btn-primary" id="sendMessageBtn">
-                            Send 📤
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Code Snippet Modal -->
-        <div id="codeModal" class="modal">
-            <div class="modal-content">
-                <span class="modal-close">&times;</span>
-                <h3>Attach Code Snippet</h3>
+    <main class="container">
+        <div class="chat-page-container">
+            <!-- Left Panel: Context -->
+            <aside class="context-panel">
+                <h3>📊 Scan Summary</h3>
                 
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label for="codeLanguage">Language</label>
-                        <select id="codeLanguage" class="form-control">
-                            <option value="python">Python</option>
-                            <option value="javascript">JavaScript</option>
-                            <option value="typescript">TypeScript</option>
-                            <option value="java">Java</option>
-                            <option value="cpp">C++</option>
-                            <option value="csharp">C#</option>
-                            <option value="go">Go</option>
-                            <option value="ruby">Ruby</option>
-                            <option value="php">PHP</option>
-                        </select>
+                <div id="contextLoading" class="loading-state">
+                    <div class="spinner"></div>
+                    <p>Loading scan data...</p>
+                </div>
+
+                <div id="contextContent" style="display: none;">
+                    <div class="risk-score">
+                        <div class="risk-score-label">Overall Risk Score</div>
+                        <div class="risk-score-value" id="riskScore">-</div>
+                        <div class="risk-score-label" id="riskLevel">-</div>
                     </div>
-                    
-                    <div class="form-group">
-                        <label for="codeSnippet">Code</label>
+
+                    <div class="context-stat">
+                        <span class="context-stat-label">Total Violations</span>
+                        <span class="context-stat-value" id="totalViolations">0</span>
+                    </div>
+
+                    <div class="context-stat">
+                        <span class="context-stat-label">Files Analyzed</span>
+                        <span class="context-stat-value" id="filesAnalyzed">0</span>
+                    </div>
+
+                    <h4 style="margin-top: 1.5rem; margin-bottom: 0.75rem; color: var(--dark-color);">By Severity</h4>
+                    <div class="severity-breakdown">
+                        <div class="severity-item critical">
+                            <span>Critical</span>
+                            <span id="criticalCount">0</span>
+                        </div>
+                        <div class="severity-item high">
+                            <span>High</span>
+                            <span id="highCount">0</span>
+                        </div>
+                        <div class="severity-item medium">
+                            <span>Medium</span>
+                            <span id="mediumCount">0</span>
+                        </div>
+                        <div class="severity-item low">
+                            <span>Low</span>
+                            <span id="lowCount">0</span>
+                        </div>
+                    </div>
+
+                    <div class="context-stat" style="margin-top: 1rem;">
+                        <span class="context-stat-label">Last Scan</span>
+                        <span class="context-stat-value" id="lastScan">-</span>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Right Panel: Chat -->
+            <section class="chat-panel">
+                <div class="chat-header">
+                    <span>🤖</span>
+                    <h3>Ask Bob about your code security</h3>
+                </div>
+
+                <div class="suggested-questions">
+                    <div class="suggested-questions-label">💡 Suggested questions:</div>
+                    <div class="question-chips">
+                        <button class="question-chip" data-question="What are the most critical violations?">
+                            What are the most critical violations?
+                        </button>
+                        <button class="question-chip" data-question="Explain the SQL injection found">
+                            Explain the SQL injection found
+                        </button>
+                        <button class="question-chip" data-question="What should I fix manually?">
+                            What should I fix manually?
+                        </button>
+                        <button class="question-chip" data-question="How secure is this codebase overall?">
+                            How secure is this codebase overall?
+                        </button>
+                    </div>
+                </div>
+
+                <div class="chat-messages-area" id="chatMessages">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">💬</div>
+                        <h4>Start a conversation with Bob</h4>
+                        <p>Ask questions about your scan results, security vulnerabilities, or get recommendations.</p>
+                    </div>
+                </div>
+
+                <div class="chat-input-area">
+                    <div class="input-wrapper">
                         <textarea 
-                            id="codeSnippet" 
-                            class="form-control code-textarea" 
-                            rows="10"
-                            placeholder="Paste your code here..."
+                            id="chatInput" 
+                            class="chat-input" 
+                            placeholder="Ask Bob about your code security..."
+                            rows="1"
                         ></textarea>
-                    </div>
-
-                    <div class="modal-actions">
-                        <button class="btn btn-secondary" id="cancelCodeBtn">Cancel</button>
-                        <button class="btn btn-primary" id="attachCodeConfirmBtn">Attach</button>
+                        <button id="sendButton" class="send-button">
+                            <span>Send</span>
+                            <span>📤</span>
+                        </button>
                     </div>
                 </div>
-            </div>
+            </section>
         </div>
-
-        <!-- Chat Features -->
-        <section class="chat-features">
-            <h3>What Bob Can Do</h3>
-            <div class="feature-grid">
-                <div class="feature-card">
-                    <div class="feature-icon">🔍</div>
-                    <h4>Code Analysis</h4>
-                    <p>Analyze code snippets for issues</p>
-                </div>
-                
-                <div class="feature-card">
-                    <div class="feature-icon">💡</div>
-                    <h4>Suggestions</h4>
-                    <p>Get improvement recommendations</p>
-                </div>
-                
-                <div class="feature-card">
-                    <div class="feature-icon">📚</div>
-                    <h4>Explanations</h4>
-                    <p>Understand compliance rules</p>
-                </div>
-                
-                <div class="feature-card">
-                    <div class="feature-icon">🔧</div>
-                    <h4>Fix Generation</h4>
-                    <p>Generate code fixes instantly</p>
-                </div>
-            </div>
-        </section>
     </main>
 
     <footer class="footer">
@@ -175,189 +552,266 @@
         </div>
     </footer>
 
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
     <script>
-        // Chat functionality
-        const chatMessages = document.getElementById('chatMessages');
-        const chatInput = document.getElementById('chatInput');
-        const sendMessageBtn = document.getElementById('sendMessageBtn');
-        const quickActionButtons = document.querySelectorAll('.quick-action-btn');
-        const attachCodeBtn = document.getElementById('attachCodeBtn');
-        const codeModal = document.getElementById('codeModal');
-        const modalClose = codeModal.querySelector('.modal-close');
-        const cancelCodeBtn = document.getElementById('cancelCodeBtn');
-        const attachCodeConfirmBtn = document.getElementById('attachCodeConfirmBtn');
+        // Global state
+        let conversationHistory = [];
+        let reportSummary = null;
 
-        let attachedCode = null;
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadContextData();
+            setupEventListeners();
+            autoResizeTextarea();
+        });
 
-        // Send message on button click
-        sendMessageBtn.addEventListener('click', sendMessage);
-
-        // Send message on Enter (Shift+Enter for new line)
-        chatInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
+        // Load context data from /report endpoint
+        async function loadContextData() {
+            try {
+                const response = await fetch('/report');
+                if (!response.ok) {
+                    throw new Error('Failed to load report');
+                }
+                
+                const data = await response.json();
+                reportSummary = data;
+                displayContextData(data);
+            } catch (error) {
+                console.error('Error loading context:', error);
+                document.getElementById('contextLoading').innerHTML = `
+                    <p style="color: var(--danger-color);">⚠️ No scan data available</p>
+                    <p style="font-size: 0.9rem;">Run an analysis first</p>
+                `;
             }
-        });
+        }
 
-        // Quick action buttons
-        quickActionButtons.forEach(btn => {
-            btn.addEventListener('click', function() {
-                const question = this.getAttribute('data-question');
-                chatInput.value = question;
-                sendMessage();
-            });
-        });
+        // Display context data in left panel
+        function displayContextData(data) {
+            document.getElementById('contextLoading').style.display = 'none';
+            document.getElementById('contextContent').style.display = 'block';
 
-        // Attach code modal
-        attachCodeBtn.addEventListener('click', () => {
-            codeModal.style.display = 'block';
-        });
-
-        modalClose.addEventListener('click', () => {
-            codeModal.style.display = 'none';
-        });
-
-        cancelCodeBtn.addEventListener('click', () => {
-            codeModal.style.display = 'none';
-        });
-
-        attachCodeConfirmBtn.addEventListener('click', () => {
-            const language = document.getElementById('codeLanguage').value;
-            const code = document.getElementById('codeSnippet').value;
+            // Calculate risk score (0-100)
+            const summary = data.summary || {};
+            const bySeverity = summary.by_severity || {};
+            const riskScore = calculateRiskScore(bySeverity);
             
-            if (code.trim()) {
-                attachedCode = { language, code };
-                attachCodeBtn.textContent = '📎 Code Attached ✓';
-                attachCodeBtn.classList.add('code-attached');
-                codeModal.style.display = 'none';
-            }
-        });
+            document.getElementById('riskScore').textContent = riskScore;
+            document.getElementById('riskLevel').textContent = getRiskLevel(riskScore);
 
-        function sendMessage() {
-            const message = chatInput.value.trim();
+            // Update stats
+            document.getElementById('totalViolations').textContent = data.violations?.length || 0;
+            document.getElementById('filesAnalyzed').textContent = data.analyzed_files || 0;
+            
+            document.getElementById('criticalCount').textContent = bySeverity.critical || 0;
+            document.getElementById('highCount').textContent = bySeverity.high || 0;
+            document.getElementById('mediumCount').textContent = bySeverity.medium || 0;
+            document.getElementById('lowCount').textContent = bySeverity.low || 0;
+
+            // Last scan time
+            const timestamp = data.timestamp ? new Date(data.timestamp).toLocaleString() : 'N/A';
+            document.getElementById('lastScan').textContent = timestamp;
+        }
+
+        // Calculate risk score based on severity counts
+        function calculateRiskScore(bySeverity) {
+            const weights = { critical: 10, high: 5, medium: 2, low: 1 };
+            const score = (bySeverity.critical || 0) * weights.critical +
+                         (bySeverity.high || 0) * weights.high +
+                         (bySeverity.medium || 0) * weights.medium +
+                         (bySeverity.low || 0) * weights.low;
+            return Math.min(100, score);
+        }
+
+        // Get risk level label
+        function getRiskLevel(score) {
+            if (score >= 75) return '🔴 Critical Risk';
+            if (score >= 50) return '🟠 High Risk';
+            if (score >= 25) return '🟡 Medium Risk';
+            return '🟢 Low Risk';
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            const sendButton = document.getElementById('sendButton');
+            const chatInput = document.getElementById('chatInput');
+
+            // Send button click
+            sendButton.addEventListener('click', sendMessage);
+
+            // Enter key to send (Shift+Enter for new line)
+            chatInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+
+            // Suggested question chips
+            document.querySelectorAll('.question-chip').forEach(chip => {
+                chip.addEventListener('click', function() {
+                    const question = this.dataset.question;
+                    chatInput.value = question;
+                    sendMessage();
+                });
+            });
+        }
+
+        // Auto-resize textarea
+        function autoResizeTextarea() {
+            const textarea = document.getElementById('chatInput');
+            textarea.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 150) + 'px';
+            });
+        }
+
+        // Send message
+        async function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            
             if (!message) return;
 
-            // Add user message to chat
-            addMessage(message, 'user');
+            // Clear input and disable send button
+            input.value = '';
+            input.style.height = 'auto';
+            const sendButton = document.getElementById('sendButton');
+            sendButton.disabled = true;
 
-            // Clear input
-            chatInput.value = '';
-
-            // Prepare context
-            const context = {};
-            if (attachedCode) {
-                context.code = attachedCode.code;
-                context.language = attachedCode.language;
+            // Remove empty state if present
+            const emptyState = document.querySelector('.empty-state');
+            if (emptyState) {
+                emptyState.remove();
             }
+
+            // Add user message to UI
+            addMessage(message, 'user');
 
             // Show typing indicator
             showTypingIndicator();
 
-            // Send to API
-            fetch('/api/chat', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    message: message,
-                    context: context
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                removeTypingIndicator();
-                if (data.success) {
-                    addMessage(data.response, 'bot');
-                    
-                    // Add suggestions if any
-                    if (data.suggestions && data.suggestions.length > 0) {
-                        addSuggestions(data.suggestions);
-                    }
-                } else {
-                    addMessage('Sorry, I encountered an error. Please try again.', 'bot');
-                }
-            })
-            .catch(error => {
-                removeTypingIndicator();
-                addMessage('Sorry, I\'m having trouble connecting. Please try again later.', 'bot');
-                console.error('Chat error:', error);
-            });
+            // Send to backend
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        context: reportSummary,
+                        history: conversationHistory
+                    })
+                });
 
-            // Reset attached code
-            if (attachedCode) {
-                attachedCode = null;
-                attachCodeBtn.textContent = '📎 Attach Code';
-                attachCodeBtn.classList.remove('code-attached');
+                if (!response.ok) {
+                    throw new Error('Failed to get response from Bob');
+                }
+
+                const data = await response.json();
+                
+                // Hide typing indicator
+                hideTypingIndicator();
+
+                // Add Bob's response with typewriter effect
+                await addMessageWithTypewriter(data.response, 'bob');
+
+                // Update conversation history
+                conversationHistory.push({
+                    role: 'user',
+                    content: message
+                });
+                conversationHistory.push({
+                    role: 'assistant',
+                    content: data.response
+                });
+
+            } catch (error) {
+                console.error('Error sending message:', error);
+                hideTypingIndicator();
+                addMessage('Sorry, I encountered an error. Please try again.', 'bob');
+            } finally {
+                sendButton.disabled = false;
+                input.focus();
             }
         }
 
+        // Add message to chat
         function addMessage(text, sender) {
+            const messagesArea = document.getElementById('chatMessages');
             const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${sender}-message`;
+            messageDiv.className = `chat-message ${sender}`;
             
-            const avatar = sender === 'bot' ? '🤖' : '👤';
-            const senderName = sender === 'bot' ? 'Bob' : 'You';
+            const avatar = sender === 'user' ? '👤' : '🛡️';
             const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             
             messageDiv.innerHTML = `
                 <div class="message-avatar">${avatar}</div>
-                <div class="message-content">
-                    <div class="message-header">
-                        <span class="message-sender">${senderName}</span>
-                        <span class="message-time">${time}</span>
-                    </div>
+                <div class="message-bubble">
                     <div class="message-text">${escapeHtml(text)}</div>
+                    <div class="message-time">${time}</div>
                 </div>
             `;
             
-            chatMessages.appendChild(messageDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
+            messagesArea.appendChild(messageDiv);
+            messagesArea.scrollTop = messagesArea.scrollHeight;
         }
 
-        function showTypingIndicator() {
-            const indicator = document.createElement('div');
-            indicator.className = 'message bot-message typing-indicator';
-            indicator.id = 'typingIndicator';
-            indicator.innerHTML = `
-                <div class="message-avatar">🤖</div>
-                <div class="message-content">
-                    <div class="typing-dots">
-                        <span></span><span></span><span></span>
-                    </div>
+        // Add message with typewriter effect
+        async function addMessageWithTypewriter(text, sender) {
+            const messagesArea = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message ${sender}`;
+            
+            const avatar = sender === 'user' ? '👤' : '🛡️';
+            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            messageDiv.innerHTML = `
+                <div class="message-avatar">${avatar}</div>
+                <div class="message-bubble">
+                    <div class="message-text"></div>
+                    <div class="message-time">${time}</div>
                 </div>
             `;
-            chatMessages.appendChild(indicator);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            messagesArea.appendChild(messageDiv);
+            const textElement = messageDiv.querySelector('.message-text');
+            
+            // Typewriter effect
+            const words = text.split(' ');
+            for (let i = 0; i < words.length; i++) {
+                textElement.textContent += (i > 0 ? ' ' : '') + words[i];
+                messagesArea.scrollTop = messagesArea.scrollHeight;
+                await new Promise(resolve => setTimeout(resolve, 30));
+            }
         }
 
-        function removeTypingIndicator() {
+        // Show typing indicator
+        function showTypingIndicator() {
+            const messagesArea = document.getElementById('chatMessages');
+            const indicator = document.createElement('div');
+            indicator.className = 'chat-message bob typing-indicator active';
+            indicator.id = 'typingIndicator';
+            indicator.innerHTML = `
+                <div class="message-avatar">🛡️</div>
+                <div class="typing-dots">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+            `;
+            messagesArea.appendChild(indicator);
+            messagesArea.scrollTop = messagesArea.scrollHeight;
+        }
+
+        // Hide typing indicator
+        function hideTypingIndicator() {
             const indicator = document.getElementById('typingIndicator');
             if (indicator) {
                 indicator.remove();
             }
         }
 
-        function addSuggestions(suggestions) {
-            const suggestionsDiv = document.createElement('div');
-            suggestionsDiv.className = 'message bot-message';
-            suggestionsDiv.innerHTML = `
-                <div class="message-avatar">💡</div>
-                <div class="message-content">
-                    <div class="message-header">
-                        <span class="message-sender">Suggestions</span>
-                    </div>
-                    <div class="suggestions-list">
-                        ${suggestions.map(s => `<div class="suggestion-item">${escapeHtml(s)}</div>`).join('')}
-                    </div>
-                </div>
-            `;
-            chatMessages.appendChild(suggestionsDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-
+        // Escape HTML to prevent XSS
         function escapeHtml(text) {
             const div = document.createElement('div');
             div.textContent = text;

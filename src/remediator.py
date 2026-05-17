@@ -118,8 +118,7 @@ class CodeRemediator:
             language = self._get_language_from_extension(file_path.suffix)
 
             # Use Bob API to generate fix
-            violation_data = violation.to_dict()
-            result = self.bob_client.generate_fix(code, violation_data, language)
+            result = self.bob_client.generate_fix(code, violation.rule_id)
 
             # Extract fix information
             fixed_code = result.get('fixed_code', '')

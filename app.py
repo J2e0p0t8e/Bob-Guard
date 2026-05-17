@@ -12,7 +12,7 @@ from flask import Flask, render_template, request, jsonify, send_file, session
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 
-from src.analyzer import CodeAnalyzer
+from src.analyzer import Analyzer, Violation
 from src.remediator import CodeRemediator
 from src.test_generator import TestGenerator
 from src.reporter import ReportGenerator
@@ -83,18 +83,14 @@ def api_analyze():
             if file.filename == '':
                 return jsonify({'error': 'No file selected'}), 400
             
-            if file and allowed_file(file.filename):
+            if file and file.filename and allowed_file(file.filename):
                 filename = secure_filename(file.filename)
                 filepath = Path(app.config['UPLOAD_FOLDER']) / filename
                 file.save(filepath)
                 
                 # Analyze single file
-                analyzer = CodeAnalyzer()
-                with open(filepath, 'r', encoding='utf-8') as f:
-                    code = f.read()
-                
-                language = analyzer._get_language_from_extension(filepath.suffix)
-                violations = analyzer.analyze_file_content(code, language, str(filepath))
+                analyzer = Analyzer(repo_path=str(filepath.parent), rules=[])
+                violations = analyzer.analyze_file(filepath)
                 
                 result = {
                     'success': True,
@@ -112,27 +108,21 @@ def api_analyze():
                 return jsonify({'error': 'Repository path does not exist'}), 400
             
             # Analyze repository
-            analyzer = CodeAnalyzer()
-            analysis_result = analyzer.analyze_repository(repo_path)
-            
-            # Generate report
-            reporter = ReportGenerator(output_dir=app.config['OUTPUT_FOLDER'])
-            report_path = reporter.generate_analysis_report(analysis_result, format='json')
+            analyzer = Analyzer(repo_path=repo_path, rules=[])
+            violations = analyzer.scan_repository()
             
             result = {
                 'success': True,
                 'repository': repo_path,
-                'total_files': analysis_result.total_files,
-                'analyzed_files': analysis_result.analyzed_files,
-                'violations': [v.to_dict() for v in analysis_result.violations],
-                'summary': analysis_result.summary,
-                'report_path': report_path
+                'total_files': len(list(Path(repo_path).rglob('*'))),
+                'analyzed_files': len(violations),
+                'violations': [v.to_dict() for v in violations],
+                'summary': {'total': len(violations)}
             }
             
             return jsonify(result)
         
-        else:
-            return jsonify({'error': 'No file or repository path provided'}), 400
+        return jsonify({'error': 'No file or repository path provided'}), 400
     
     except Exception as e:
         logger.error(f"Analysis error: {e}")
@@ -154,7 +144,6 @@ def api_remediate():
             return jsonify({'error': 'No violations provided'}), 400
         
         # Convert violation data back to Violation objects
-        from src.analyzer import Violation
         violations = []
         for v_data in violations_data:
             violation = Violation(
@@ -169,8 +158,10 @@ def api_remediate():
                 code_snippet=v_data['code_snippet'],
                 description=v_data['description'],
                 recommendation=v_data['recommendation'],
-                cwe_id=v_data.get('cwe_id'),
-                cvss_score=v_data.get('cvss_score')
+                context_before=v_data.get('context_before', []),
+                context_after=v_data.get('context_after', []),
+                explanation=v_data.get('explanation', ''),
+                confidence=v_data.get('confidence', 0.8)
             )
             violations.append(violation)
         

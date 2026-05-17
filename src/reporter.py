@@ -12,7 +12,7 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from src.analyzer import AnalysisResult, Violation
+from src.analyzer import Violation
 from src.remediator import RemediationResult, Fix
 from src.test_generator import TestGenerationResult, TestSuiteResult
 from src.bob_client import BobClient, BobAPIError
@@ -46,14 +46,16 @@ class ReportGenerator:
             autoescape=select_autoescape(['html', 'xml'])
         )
 
-    def generate_analysis_report(self, analysis_result: AnalysisResult, 
-                                 format: str = 'html') -> str:
+    def generate_analysis_report(self, violations: List[Violation],
+                                 format: str = 'html',
+                                 repo_path: str = '') -> str:
         """
         Generate a report for analysis results.
         
         Args:
-            analysis_result: Analysis results to report
+            violations: List of violations to report
             format: Output format ('html', 'json', or 'markdown')
+            repo_path: Repository path for context
             
         Returns:
             Path to generated report file
@@ -61,31 +63,34 @@ class ReportGenerator:
         logger.info(f"Generating {format} analysis report")
 
         if format == 'html':
-            return self._generate_html_analysis_report(analysis_result)
+            return self._generate_html_analysis_report(violations, repo_path)
         elif format == 'json':
-            return self._generate_json_analysis_report(analysis_result)
+            return self._generate_json_analysis_report(violations, repo_path)
         elif format == 'markdown':
-            return self._generate_markdown_analysis_report(analysis_result)
+            return self._generate_markdown_analysis_report(violations, repo_path)
         else:
             raise ValueError(f"Unsupported format: {format}")
 
-    def _generate_html_analysis_report(self, analysis_result: AnalysisResult) -> str:
+    def _generate_html_analysis_report(self, violations: List[Violation], repo_path: str) -> str:
         """Generate HTML analysis report."""
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         output_file = self.output_dir / f'analysis_report_{timestamp}.html'
 
+        # Prepare summary
+        summary = self._build_summary(violations)
+        
         # Prepare data for template
         context = {
             'title': 'Bob-Guard Analysis Report',
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'repository': analysis_result.repository_path,
-            'total_files': analysis_result.total_files,
-            'analyzed_files': analysis_result.analyzed_files,
-            'total_violations': len(analysis_result.violations),
-            'summary': analysis_result.summary,
-            'violations': self._prepare_violations_for_template(analysis_result.violations),
-            'severity_chart_data': self._prepare_severity_chart_data(analysis_result.summary),
-            'category_chart_data': self._prepare_category_chart_data(analysis_result.summary)
+            'repository': repo_path,
+            'total_files': len(set(v.file_path for v in violations)),
+            'analyzed_files': len(set(v.file_path for v in violations)),
+            'total_violations': len(violations),
+            'summary': summary,
+            'violations': self._prepare_violations_for_template(violations),
+            'severity_chart_data': self._prepare_severity_chart_data(summary),
+            'category_chart_data': self._prepare_category_chart_data(summary)
         }
 
         # Render template
@@ -103,53 +108,64 @@ class ReportGenerator:
         logger.info(f"HTML report generated: {output_file}")
         return str(output_file)
 
-    def _generate_json_analysis_report(self, analysis_result: AnalysisResult) -> str:
+    def _generate_json_analysis_report(self, violations: List[Violation], repo_path: str) -> str:
         """Generate JSON analysis report."""
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         output_file = self.output_dir / f'analysis_report_{timestamp}.json'
 
+        # Build report data
+        report_data = {
+            'repository_path': repo_path,
+            'timestamp': datetime.now().isoformat(),
+            'total_violations': len(violations),
+            'violations': [v.to_dict() for v in violations],
+            'summary': self._build_summary(violations)
+        }
+
         # Write to file
         with open(output_file, 'w', encoding='utf-8') as f:
-            json.dump(analysis_result.to_dict(), f, indent=2)
+            json.dump(report_data, f, indent=2)
 
         logger.info(f"JSON report generated: {output_file}")
         return str(output_file)
 
-    def _generate_markdown_analysis_report(self, analysis_result: AnalysisResult) -> str:
+    def _generate_markdown_analysis_report(self, violations: List[Violation], repo_path: str) -> str:
         """Generate Markdown analysis report."""
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         output_file = self.output_dir / f'analysis_report_{timestamp}.md'
 
+        summary = self._build_summary(violations)
+        
         lines = [
             '# Bob-Guard Analysis Report',
             '',
             f'**Generated:** {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}',
-            f'**Repository:** {analysis_result.repository_path}',
+            f'**Repository:** {repo_path}',
             '',
             '## Summary',
             '',
-            f'- **Total Files:** {analysis_result.total_files}',
-            f'- **Analyzed Files:** {analysis_result.analyzed_files}',
-            f'- **Total Violations:** {len(analysis_result.violations)}',
+            f'- **Total Files:** {len(set(v.file_path for v in violations))}',
+            f'- **Analyzed Files:** {len(set(v.file_path for v in violations))}',
+            f'- **Total Violations:** {len(violations)}',
             '',
             '### Violations by Severity',
             ''
         ]
 
         # Add severity breakdown
-        for severity, count in analysis_result.summary['by_severity'].items():
+        for severity, count in summary['by_severity'].items():
             lines.append(f'- **{severity.capitalize()}:** {count}')
 
         lines.extend(['', '### Violations by Category', ''])
 
         # Add category breakdown
-        for category, count in analysis_result.summary['by_category'].items():
+        for category, count in summary['by_category'].items():
             lines.append(f'- **{category.upper()}:** {count}')
 
         lines.extend(['', '## Detailed Violations', ''])
 
         # Add detailed violations
-        for i, violation in enumerate(analysis_result.violations, 1):
+        for i, violation in enumerate(violations, 1):
             lines.extend([
                 f'### {i}. {violation.rule_name}',
                 '',
@@ -271,7 +287,26 @@ class ReportGenerator:
         logger.info(f"Markdown remediation report generated: {output_file}")
         return str(output_file)
 
-    def generate_combined_report(self, analysis_result: AnalysisResult,
+    def _build_summary(self, violations: List[Violation]) -> Dict[str, Any]:
+        """Build summary statistics from violations."""
+        summary = {
+            'total': len(violations),
+            'by_severity': {},
+            'by_category': {}
+        }
+        
+        for violation in violations:
+            # Count by severity
+            severity = violation.severity
+            summary['by_severity'][severity] = summary['by_severity'].get(severity, 0) + 1
+            
+            # Count by category
+            category = violation.category
+            summary['by_category'][category] = summary['by_category'].get(category, 0) + 1
+        
+        return summary
+
+    def generate_combined_report(self, violations: List[Violation],
                                 remediation_result: Optional[RemediationResult] = None,
                                 test_result: Optional[TestGenerationResult] = None,
                                 format: str = 'html') -> str:
@@ -294,7 +329,10 @@ class ReportGenerator:
 
         if format == 'json':
             combined_data = {
-                'analysis': analysis_result.to_dict(),
+                'analysis': {
+                    'violations': [v.to_dict() for v in violations],
+                    'summary': self._build_summary(violations)
+                },
                 'remediation': remediation_result.to_dict() if remediation_result else None,
                 'tests': test_result.to_dict() if test_result else None,
                 'timestamp': datetime.utcnow().isoformat()
@@ -645,8 +683,10 @@ class Reporter:
             "code_snippet": violation.code_snippet,
             "description": violation.description,
             "recommendation": violation.recommendation,
-            "cwe_id": violation.cwe_id,
-            "cvss_score": violation.cvss_score
+            "context_before": violation.context_before,
+            "context_after": violation.context_after,
+            "explanation": violation.explanation,
+            "confidence": violation.confidence
         }
 
     def _build_remediations_data(self) -> List[Dict[str, Any]]:

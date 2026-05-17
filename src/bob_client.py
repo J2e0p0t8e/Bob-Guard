@@ -332,7 +332,13 @@ class BobClient:
         Raises:
             BobAPIError: If request fails
         """
-        return self._make_request('GET', 'rules')
+        result = self._make_request('GET', 'rules')
+        # Ensure we return a list
+        if isinstance(result, dict) and 'rules' in result:
+            return result['rules']
+        elif isinstance(result, list):
+            return result
+        return []
 
     def close(self):
         """Close the HTTP session."""

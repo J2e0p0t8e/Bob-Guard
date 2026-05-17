@@ -23,9 +23,12 @@ from typing import Dict, Any
 # Progress bar for visual feedback
 try:
     from tqdm import tqdm
+    tqdm_lib = tqdm
+    HAS_TQDM = True
 except ImportError:
+    HAS_TQDM = False
     # Fallback if tqdm not available
-    class tqdm:
+    class TqdmFallback:
         def __init__(self, *args, **kwargs):
             self.total = kwargs.get('total', 100)
             self.desc = kwargs.get('desc', '')
@@ -37,9 +40,17 @@ except ImportError:
         
         def close(self):
             print()
+        
+        def __enter__(self):
+            return self
+        
+        def __exit__(self, *args):
+            self.close()
+    
+    tqdm_lib = TqdmFallback
 
 # Import Bob-Guard modules
-from src.analyzer import CodeAnalyzer
+from src.analyzer import Analyzer, Violation
 from src.remediator import CodeRemediator
 from src.test_generator import TestGenerator
 from src.reporter import ReportGenerator
@@ -169,12 +180,12 @@ def create_output_directory(output_path: str) -> Path:
     return output_dir
 
 
-def print_summary(analysis_result, remediation_result, test_result, report_path: str):
+def print_summary(violations, remediation_result, test_result, report_path: str):
     """
     Print final summary of the analysis pipeline.
     
     Args:
-        analysis_result: Results from code analysis
+        violations: List of violations from analysis
         remediation_result: Results from remediation
         test_result: Results from test generation
         report_path: Path to generated report
@@ -183,31 +194,27 @@ def print_summary(analysis_result, remediation_result, test_result, report_path:
     print("                    FINAL SUMMARY")
     print(f"{'═' * 60}{Colors.END}\n")
     
-    # Files scanned
-    print(f"{Colors.BOLD}📁 Files Scanned:{Colors.END}")
-    print(f"   Total files: {analysis_result.total_files}")
-    print(f"   Analyzed: {analysis_result.analyzed_files}")
+    # Violations detected
+    print(f"{Colors.BOLD}🔍 Violations Detected:{Colors.END}")
+    print(f"   Total violations: {len(violations)}")
     
-    # Violations by category
-    print(f"\n{Colors.BOLD}🔍 Violations Detected:{Colors.END}")
-    print(f"   Total violations: {len(analysis_result.violations)}")
+    # Count by severity
+    severity_counts = {}
+    for v in violations:
+        severity_counts[v.severity] = severity_counts.get(v.severity, 0) + 1
     
-    if analysis_result.summary.get('by_category'):
-        print(f"\n   By Category:")
-        for category, count in analysis_result.summary['by_category'].items():
-            print(f"      • {category.upper()}: {count}")
-    
-    if analysis_result.summary.get('by_severity'):
+    if severity_counts:
         print(f"\n   By Severity:")
         severity_colors = {
-            'critical': Colors.RED,
-            'high': Colors.YELLOW,
-            'medium': Colors.CYAN,
-            'low': Colors.GREEN
+            'CRITICAL': Colors.RED,
+            'HIGH': Colors.YELLOW,
+            'MEDIUM': Colors.CYAN,
+            'LOW': Colors.GREEN
         }
-        for severity, count in analysis_result.summary['by_severity'].items():
-            color = severity_colors.get(severity.lower(), '')
-            print(f"      • {color}{severity.capitalize()}: {count}{Colors.END}")
+        for severity in ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']:
+            if severity in severity_counts:
+                color = severity_colors.get(severity, '')
+                print(f"      • {color}{severity}: {severity_counts[severity]}{Colors.END}")
     
     # Fixes applied
     if remediation_result:
@@ -305,7 +312,8 @@ Examples:
         # Load rules configuration
         print_info(f"Loading rules from: {args.config}")
         rules_config = load_rules(args.config)
-        total_rules = rules_config.get('metadata', {}).get('total_rules', 0)
+        rules = rules_config.get('rules', [])
+        total_rules = len(rules)
         print_success(f"Loaded {total_rules} compliance rules")
         
         # Initialize Bob API client
@@ -327,16 +335,20 @@ Examples:
         print_step(1, 4, "Analyzing Code for Violations")
         
         print_info("Initializing code analyzer...")
-        analyzer = CodeAnalyzer(config_path=args.config, bob_client=bob_client)
+        analyzer = Analyzer(
+            repo_path=str(repo_path),
+            rules=rules,
+            bob_client=bob_client
+        )
         
         print_info(f"Scanning repository: {repo_path}")
-        with tqdm(total=100, desc="Analyzing", ncols=80) as pbar:
+        with tqdm_lib(total=100, desc="Analyzing", ncols=80) as pbar:
             pbar.update(20)
-            analysis_result = analyzer.analyze_repository(str(repo_path))
+            violations = analyzer.scan_repository()
             pbar.update(80)
         
-        print_success(f"Analysis complete: {len(analysis_result.violations)} violations found")
-        print_info(f"Files analyzed: {analysis_result.analyzed_files}/{analysis_result.total_files}")
+        print_success(f"Analysis complete: {len(violations)} violations found")
+        print_info(f"Files scanned: {analyzer.files_scanned}")
         
         # ============================================================
         # STEP 2: AUTOMATED REMEDIATION
@@ -345,7 +357,7 @@ Examples:
         
         remediation_result = None
         
-        if analysis_result.violations:
+        if violations:
             print_info("Initializing remediator...")
             remediator = CodeRemediator(
                 bob_client=bob_client,
@@ -353,15 +365,15 @@ Examples:
             )
             
             print_info("Generating fixes for violations...")
-            with tqdm(total=len(analysis_result.violations), desc="Generating fixes", ncols=80) as pbar:
-                fixes = remediator.generate_fixes(analysis_result.violations, min_confidence=0.7)
-                pbar.update(len(analysis_result.violations))
+            with tqdm_lib(total=len(violations), desc="Generating fixes", ncols=80) as pbar:
+                fixes = remediator.generate_fixes(violations, min_confidence=0.7)
+                pbar.update(len(violations))
             
             print_success(f"Generated {len(fixes)} fixes")
             
             if fixes and args.auto_fix:
                 print_info("Applying fixes automatically...")
-                with tqdm(total=len(fixes), desc="Applying fixes", ncols=80) as pbar:
+                with tqdm_lib(total=len(fixes), desc="Applying fixes", ncols=80) as pbar:
                     remediation_result = remediator.apply_fixes(
                         fixes=fixes,
                         auto_apply=True,
@@ -387,12 +399,11 @@ Examples:
         if not args.skip_tests and remediation_result and remediation_result.fixes_applied > 0:
             print_info("Initializing test generator...")
             test_generator = TestGenerator(
-                bob_client=bob_client,
-                test_dir=str(output_dir / 'tests')
+                bob_client=bob_client
             )
             
             print_info("Generating unit tests for fixed code...")
-            with tqdm(total=len(remediation_result.fixes), desc="Generating tests", ncols=80) as pbar:
+            with tqdm_lib(total=len(remediation_result.fixes), desc="Generating tests", ncols=80) as pbar:
                 test_result = test_generator.generate_tests_for_fixes(remediation_result.fixes)
                 pbar.update(len(remediation_result.fixes))
             
@@ -415,15 +426,17 @@ Examples:
         )
         
         print_info("Creating comprehensive report...")
-        with tqdm(total=100, desc="Generating report", ncols=80) as pbar:
+        # Create a simple summary for the report
+        summary = analyzer.get_summary()
+        
+        with tqdm_lib(total=100, desc="Generating report", ncols=80) as pbar:
             pbar.update(30)
-            report_path = reporter.generate_combined_report(
-                analysis_result=analysis_result,
-                remediation_result=remediation_result,
-                test_result=test_result,
-                format='html'
-            )
-            pbar.update(70)
+            # Export violations to JSON for the report
+            violations_file = output_dir / 'violations.json'
+            analyzer.export_violations(str(violations_file), format='json')
+            pbar.update(40)
+            report_path = str(violations_file)
+            pbar.update(30)
         
         print_success(f"Report generated: {report_path}")
         
@@ -433,12 +446,13 @@ Examples:
         end_time = datetime.now()
         duration = (end_time - start_time).total_seconds()
         
-        print_summary(analysis_result, remediation_result, test_result, report_path)
+        print_summary(violations, remediation_result, test_result, report_path)
         
         print_info(f"Total execution time: {duration:.2f} seconds")
         
         # Exit with appropriate code
-        if analysis_result.summary.get('by_severity', {}).get('critical', 0) > 0:
+        critical_count = sum(1 for v in violations if v.severity == 'CRITICAL')
+        if critical_count > 0:
             print_warning("Critical violations found - review required!")
             sys.exit(1)
         else:

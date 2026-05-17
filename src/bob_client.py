@@ -6,6 +6,7 @@ IBM Bob is an AI agent capable of understanding and transforming entire codebase
 
 import os
 import time
+import json
 from typing import Dict, List, Optional, Any
 from dotenv import load_dotenv
 import requests
@@ -123,7 +124,19 @@ class BobClient:
                 # Raise for other HTTP errors
                 response.raise_for_status()
                 
-                return response.json()
+                # Parse JSON response. Some Bob endpoints may return a
+                # JSON string (i.e. a JSON encoded string) which
+                # results in response.json() returning a Python str.
+                # Normalize that here so callers always receive a
+                # dict/list when possible.
+                parsed = response.json()
+                if isinstance(parsed, str):
+                    try:
+                        parsed = json.loads(parsed)
+                    except Exception:
+                        # Leave as-is (string) if it cannot be parsed
+                        pass
+                return parsed
                 
             except requests.exceptions.Timeout:
                 if attempt < max_retries - 1:

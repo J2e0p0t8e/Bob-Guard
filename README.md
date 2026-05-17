@@ -118,6 +118,12 @@ Analyze a repository:
 python main.py analyze --repo /path/to/repo --output ./output/report.html
 ```
 
+You can also pass a GitHub repository URL and the CLI will clone it before analysis:
+
+```bash
+python main.py --repo https://github.com/user/repository --output ./output
+```
+
 Apply fixes automatically:
 
 ```bash

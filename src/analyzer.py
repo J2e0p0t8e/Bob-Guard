@@ -11,7 +11,7 @@ import re
 import json
 import logging
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Set
+from typing import List, Dict, Any, Optional, Set, Callable
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
 
@@ -112,7 +112,13 @@ class Analyzer:
     # Number of context lines to include around violations
     CONTEXT_LINES = 10
     
-    def __init__(self, repo_path: str, rules: List[Dict[str, Any]], bob_client: Optional[BobClient] = None):
+    def __init__(
+        self,
+        repo_path: str,
+        rules: List[Dict[str, Any]],
+        bob_client: Optional[BobClient] = None,
+        progress_callback: Optional[Callable[[int, int, Optional[str], int], None]] = None,
+    ):
         """
         Initialize the Analyzer.
         
@@ -134,6 +140,7 @@ class Analyzer:
         
         self.rules = rules
         self.bob_client = bob_client
+        self.progress_callback = progress_callback
         self.violations: List[Violation] = []
         self.files_scanned = 0
         self.files_with_violations = 0
@@ -178,11 +185,14 @@ class Analyzer:
         
         # Collect all files to analyze
         files_to_analyze = self._collect_files()
+        total_files = len(files_to_analyze)
         
-        print(f"Found {len(files_to_analyze)} files to analyze")
+        print(f"Found {total_files} files to analyze")
+
+        self._emit_progress(0, total_files, None)
         
         # Analyze each file
-        for file_path in files_to_analyze:
+        for index, file_path in enumerate(files_to_analyze, start=1):
             try:
                 file_violations = self.analyze_file(file_path)
                 
@@ -191,15 +201,31 @@ class Analyzer:
                     self.files_with_violations += 1
                 
                 self.files_scanned += 1
+
+                self._emit_progress(index, total_files, str(file_path), len(file_violations))
                 
             except Exception as e:
                 print(f"Error analyzing {file_path}: {e}")
+                self.files_scanned += 1
+                self._emit_progress(index, total_files, str(file_path), 0)
                 continue
         
         print(f"Scan complete: {self.files_scanned} files scanned, "
               f"{len(self.violations)} violations found in {self.files_with_violations} files")
+
+        self._emit_progress(total_files, total_files, None)
         
         return self.violations
+
+    def _emit_progress(self, processed_files: int, total_files: int, current_file: Optional[str], violations_found: int = 0):
+        """Send a progress update to the caller, if one was provided."""
+        if self.progress_callback is None:
+            return
+
+        try:
+            self.progress_callback(processed_files, total_files, current_file, violations_found)
+        except Exception as e:
+            logger.debug(f"Progress callback failed: {e}")
     
     def _collect_files(self) -> List[Path]:
         """
@@ -401,10 +427,30 @@ class Analyzer:
                 rule=rule['id']
             )
             
+            # Normalize Bob response: some endpoints may return a JSON
+            # encoded string. Ensure we have a dict-like object.
+            if isinstance(bob_response, str):
+                try:
+                    bob_response = json.loads(bob_response)
+                except Exception:
+                    logger.warning(f"Bob response is a string and could not be parsed as JSON for {file_path}:{line_number}")
+                    return None
+
             # Check if Bob confirms this is a real violation
-            # Bob's response should include confidence score
-            confidence = bob_response.get('confidence', 0.0)
-            
+            # Bob's response may include a numeric confidence (0.0-1.0)
+            # or a textual level like "high"/"medium"/"low".
+            raw_conf = bob_response.get('confidence', 0.0)
+
+            if isinstance(raw_conf, str):
+                level = raw_conf.strip().lower()
+                level_map = {'high': 0.95, 'medium': 0.75, 'low': 0.45}
+                confidence = level_map.get(level, 0.0)
+            else:
+                try:
+                    confidence = float(raw_conf)
+                except Exception:
+                    confidence = 0.0
+
             # Only create violation if confidence is above threshold
             if confidence < 0.5:
                 return None
@@ -635,6 +681,15 @@ Analyze the code now and respond with JSON only:"""
                 file_path=repo_path,
                 rule='CROSS_FILE_ANALYSIS'
             )
+
+            # Normalize bob_response: sometimes the API returns a JSON
+            # encoded string. Ensure we have a dict/list before using .get()
+            if isinstance(bob_response, str):
+                try:
+                    bob_response = json.loads(bob_response)
+                except Exception:
+                    logger.warning("Bob analyze_code returned a string that could not be parsed as JSON")
+                    bob_response = {}
             
             # Parse Bob's response
             additional_violations = self._parse_cross_file_violations(
@@ -1004,7 +1059,14 @@ Analyze the repository now and respond with JSON only:"""
     ) -> List[Violation]:
         """Parse Bob's response and create Violation objects."""
         violations = []
-        
+        # Defensive: allow bob_response to be a JSON string
+        if isinstance(bob_response, str):
+            try:
+                bob_response = json.loads(bob_response)
+            except Exception:
+                logger.warning("_parse_cross_file_violations received unparseable string response")
+                bob_response = {}
+
         additional_violations = bob_response.get('additional_violations', [])
         
         for i, v_data in enumerate(additional_violations):

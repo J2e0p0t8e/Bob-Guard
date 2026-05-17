@@ -369,31 +369,75 @@ Now, generate the fix following all constraints above. Return ONLY the JSON resp
                         language=language
                     )
                     
-                    # Send prompt to Bob via chat endpoint for better context handling
-                    fix_response = self.bob_client.chat(
-                        message=prompt,
-                        context={
-                            'file_path': file_path,
-                            'violation_id': violation.id,
-                            'action': 'remediate'
-                        }
-                    )
-                    
-                    # Parse Bob's response
-                    response_text = fix_response.get('response', '')
-                    
-                    # Try to extract JSON from response
-                    import json
+                    # Prefer `generate_fix` when available (tests and some clients)
+                    fix_data = None
                     try:
-                        # Remove markdown code blocks if present
-                        if '```json' in response_text:
-                            response_text = response_text.split('```json')[1].split('```')[0].strip()
-                        elif '```' in response_text:
-                            response_text = response_text.split('```')[1].split('```')[0].strip()
-                        
-                        fix_data = json.loads(response_text)
-                    except json.JSONDecodeError:
-                        logger.error(f"Failed to parse Bob's response as JSON for violation {violation.id}")
+                        if hasattr(self.bob_client, 'generate_fix'):
+                            resp = self.bob_client.generate_fix(code_snippet=prompt, violation_type=violation.rule_id)
+                            # Normalize string responses
+                            if isinstance(resp, str):
+                                try:
+                                    resp = json.loads(resp)
+                                except Exception:
+                                    resp = {'fixed_code': str(resp)}
+
+                            # If the client returned a dict with 'fixed_code', convert to expected structure
+                            if isinstance(resp, dict) and 'fixed_code' in resp:
+                                fix_data = {
+                                    'can_fix': True,
+                                    'patched_code': resp.get('fixed_code', ''),
+                                    'fix_description': resp.get('explanation', ''),
+                                    'changes_summary': [resp.get('diff', '')],
+                                    'requires_manual_review': False,
+                                    'confidence': resp.get('confidence', 0.0),
+                                    'risk_level': 'unknown'
+                                }
+                            elif isinstance(resp, dict):
+                                fix_data = resp
+                            else:
+                                fix_data = {'can_fix': False, 'patched_code': ''}
+                        else:
+                            # Fallback to chat interface
+                            fix_response = self.bob_client.chat(
+                                message=prompt,
+                                context={
+                                    'file_path': file_path,
+                                    'violation_id': violation.id,
+                                    'action': 'remediate'
+                                }
+                            )
+
+                            # Normalize chat response
+                            if isinstance(fix_response, dict) and 'response' in fix_response:
+                                response_text = fix_response.get('response', '')
+                            else:
+                                response_text = str(fix_response)
+
+                            # Try to extract JSON from response_text
+                            try:
+                                if isinstance(response_text, str):
+                                    # Remove markdown code blocks if present
+                                    if '```json' in response_text:
+                                        response_text = response_text.split('```json')[1].split('```')[0].strip()
+                                    elif '```' in response_text:
+                                        response_text = response_text.split('```')[1].split('```')[0].strip()
+                                    fix_data = json.loads(response_text)
+                                else:
+                                    fix_data = {}
+                            except Exception:
+                                logger.error(f"Failed to parse Bob's response as JSON for violation {violation.id}")
+                                results.append(RemediationResult(
+                                    violation_id=violation.id,
+                                    file_path=file_path,
+                                    original_code=violation.code_snippet,
+                                    fixed_code="",
+                                    diff="",
+                                    status="FAILED",
+                                    error_message="Invalid JSON response from Bob"
+                                ))
+                                continue
+                    except BobAPIError as e:
+                        logger.error(f"Bob API error for violation {violation.id}: {str(e)}")
                         results.append(RemediationResult(
                             violation_id=violation.id,
                             file_path=file_path,
@@ -401,7 +445,7 @@ Now, generate the fix following all constraints above. Return ONLY the JSON resp
                             fixed_code="",
                             diff="",
                             status="FAILED",
-                            error_message="Invalid JSON response from Bob"
+                            error_message=f"Bob API error: {str(e)}"
                         ))
                         continue
                     
@@ -1916,6 +1960,166 @@ def quick_remediate(violations: List[Violation], api_key: Optional[str] = None,
     with BobClient(api_key=api_key) as client:
         remediator = Remediator(violations, client, dry_run=dry_run)
         return remediator.remediate_all()
+
+
+class CodeRemediator:
+    """
+    Simplified wrapper around Remediator for easier API usage.
+    Provides a stateless interface for generating and applying fixes.
+    """
+    
+    def __init__(self, bob_client: Optional[BobClient] = None, backup_dir: str = 'backups'):
+        """
+        Initialize CodeRemediator.
+        
+        Args:
+            bob_client: Optional BobClient instance
+            backup_dir: Directory for backups
+        """
+        self.bob_client = bob_client
+        self.backup_dir = Path(backup_dir)
+        self.backup_dir.mkdir(parents=True, exist_ok=True)
+    
+    def generate_fixes(self, violations: List[Violation], min_confidence: float = 0.7) -> List['Fix']:
+        """
+        Generate fixes for violations.
+        
+        Args:
+            violations: List of violations to fix
+            min_confidence: Minimum confidence threshold
+            
+        Returns:
+            List of Fix objects
+        """
+        if not violations:
+            return []
+        
+        # Filter by confidence if violations have confidence scores
+        filtered_violations = [
+            v for v in violations 
+            if getattr(v, 'confidence', 1.0) >= min_confidence
+        ]
+        
+        if not filtered_violations:
+            return []
+        
+        # Use Remediator to generate fixes
+        if self.bob_client:
+            remediator = Remediator(filtered_violations, self.bob_client, dry_run=True)
+            report = remediator.remediate_all()
+            
+            # Convert RemediationResults to Fix objects
+            fixes = []
+            for result in report.results:
+                if result.status in ['SUCCESS', 'DRY_RUN']:
+                    fix = Fix(
+                        violation_id=result.violation_id,
+                        file_path=result.file_path,
+                        original_code=result.original_code,
+                        fixed_code=result.fixed_code,
+                        explanation=result.diff,
+                        confidence=result.confidence,
+                        applied=False,
+                        backup_path=result.backup_path
+                    )
+                    fixes.append(fix)
+            
+            return fixes
+        
+        return []
+    
+    def apply_fixes(self, fixes: List['Fix'], auto_apply: bool = False, 
+                   create_backup: bool = True) -> 'RemediationSummary':
+        """
+        Apply generated fixes to files.
+        
+        Args:
+            fixes: List of Fix objects to apply
+            auto_apply: Whether to apply automatically
+            create_backup: Whether to create backups
+            
+        Returns:
+            RemediationSummary with results
+        """
+        applied = 0
+        failed = 0
+        
+        if not auto_apply:
+            return RemediationSummary(
+                fixes_generated=len(fixes),
+                fixes_applied=0,
+                fixes_failed=0,
+                fixes=fixes
+            )
+        
+        for fix in fixes:
+            try:
+                file_path = Path(fix.file_path)
+                
+                if not file_path.exists():
+                    logger.warning(f"File not found: {file_path}")
+                    failed += 1
+                    continue
+                
+                # Create backup if requested
+                if create_backup:
+                    backup_path = self.backup_dir / f"{file_path.name}.backup"
+                    shutil.copy2(file_path, backup_path)
+                    fix.backup_path = str(backup_path)
+                
+                # Apply fix
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    f.write(fix.fixed_code)
+                
+                fix.applied = True
+                applied += 1
+                logger.info(f"Applied fix to {file_path}")
+            
+            except Exception as e:
+                logger.error(f"Failed to apply fix to {fix.file_path}: {e}")
+                failed += 1
+        
+        return RemediationSummary(
+            fixes_generated=len(fixes),
+            fixes_applied=applied,
+            fixes_failed=failed,
+            fixes=fixes
+        )
+
+
+@dataclass
+class Fix:
+    """Represents a code fix."""
+    violation_id: str
+    file_path: str
+    original_code: str
+    fixed_code: str
+    explanation: str
+    confidence: float
+    applied: bool = False
+    backup_path: Optional[str] = None
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return asdict(self)
+
+
+@dataclass
+class RemediationSummary:
+    """Summary of remediation operations."""
+    fixes_generated: int
+    fixes_applied: int
+    fixes_failed: int
+    fixes: List[Fix]
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            'fixes_generated': self.fixes_generated,
+            'fixes_applied': self.fixes_applied,
+            'fixes_failed': self.fixes_failed,
+            'fixes': [f.to_dict() for f in self.fixes]
+        }
 
 
 # Made with Bob

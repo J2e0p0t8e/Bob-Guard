@@ -5,6 +5,7 @@ Unit tests for the CodeAnalyzer module
 import pytest
 import sys
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -52,7 +53,7 @@ class TestCodeAnalyzer:
             file_path='test.py',
             line_number=10,
             column=5,
-            code_snippet='query = "SELECT * FROM users"',
+            code_snippet='query = \"SELECT * FROM users\"',
             description='Potential SQL injection',
             recommendation='Use parameterized queries',
             context_before=[],
@@ -76,7 +77,7 @@ class TestCodeAnalyzer:
             file_path='test.py',
             line_number=10,
             column=5,
-            code_snippet='query = "SELECT * FROM users"',
+            code_snippet='query = \"SELECT * FROM users\"',
             description='Potential SQL injection',
             recommendation='Use parameterized queries',
             context_before=[],
@@ -100,8 +101,47 @@ class TestCodeAnalyzer:
         # This method doesn't exist in new Analyzer, skip test
         pass
 
+    def test_scan_repository(self):
+        """Test scanning the repository"""
+        violations = self.analyzer.scan_repository()
+        assert isinstance(violations, list)
+
+    def test_scan_repository_emits_progress_updates(self):
+        """Test that repository scanning emits live progress updates."""
+        with TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            repo_file = temp_path / 'sample.py'
+            repo_file.write_text('password = "secret"\n', encoding='utf-8')
+
+            rules = [{
+                'id': 'SEC-TEST',
+                'name': 'Hardcoded Secret',
+                'category': 'SECURITY',
+                'severity': 'HIGH',
+                'pattern': r'password\s*=\s*"[^"]+"',
+                'languages': ['python'],
+                'description': 'Hardcoded secret detected',
+                'remediation_hint': 'Move secrets to environment variables',
+            }]
+
+            updates = []
+
+            analyzer = Analyzer(
+                repo_path=str(temp_path),
+                rules=rules,
+                progress_callback=lambda processed, total, current_file, violations_found: updates.append(
+                    (processed, total, current_file, violations_found)
+                ),
+            )
+
+            violations = analyzer.scan_repository()
+
+            assert len(violations) == 1
+            assert updates
+            assert updates[0][0] == 0
+            assert updates[-1][0] == updates[-1][1]
+            assert any(update[2] and update[2].endswith('sample.py') for update in updates)
+
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])
-
-# Made with Bob

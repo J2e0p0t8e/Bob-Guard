@@ -3,203 +3,384 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bob-Guard - Automated Compliance & Security Analysis</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>Bob-Guard | Automated Security & Compliance Agent</title>
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <nav class="navbar">
+    <!-- Header -->
+    <header class="header">
         <div class="container">
-            <div class="nav-brand">
-                <h1>🛡️ Bob-Guard</h1>
-                <p class="tagline">Automated Compliance & Security Analysis</p>
+            <div class="logo">
+                <span class="shield">🛡️</span>
+                <h1>Bob-Guard</h1>
             </div>
-            <ul class="nav-menu">
-                <li><a href="/" class="active">Analyze</a></li>
-                <li><a href="/results">Results</a></li>
-                <li><a href="/chat">Chat with Bob</a></li>
-            </ul>
+            <p class="tagline">Automated Security & Compliance Agent</p>
         </div>
-    </nav>
+    </header>
 
-    <main class="container">
-        <section class="hero">
-            <h2>Analyze Your Codebase</h2>
-            <p>Upload files or specify a repository path to detect compliance violations and security vulnerabilities</p>
-        </section>
-
-        <section class="analysis-options">
-            <div class="tabs">
-                <button class="tab-button active" data-tab="file-upload">File Upload</button>
-                <button class="tab-button" data-tab="repo-path">Repository Path</button>
-            </div>
-
-            <!-- File Upload Tab -->
-            <div id="file-upload" class="tab-content active">
-                <div class="upload-area" id="dropZone">
-                    <div class="upload-icon">📁</div>
-                    <h3>Drop files here or click to browse</h3>
-                    <p>Supported: .py, .js, .ts, .java, .cpp, .c, .cs, .go, .rb, .php</p>
-                    <input type="file" id="fileInput" multiple accept=".py,.js,.ts,.java,.cpp,.c,.cs,.go,.rb,.php" hidden>
-                    <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
-                        Choose Files
-                    </button>
-                </div>
-                <div id="fileList" class="file-list"></div>
-            </div>
-
-            <!-- Repository Path Tab -->
-            <div id="repo-path" class="tab-content">
-                <div class="form-group">
-                    <label for="repoPathInput">Repository Path</label>
-                    <input type="text" id="repoPathInput" class="form-control" 
-                           placeholder="/path/to/your/repository" 
-                           value="">
-                    <small class="form-text">Enter the absolute path to your local repository</small>
-                </div>
+    <!-- Main Content -->
+    <main class="main">
+        <div class="container">
+            <!-- Scan Options Card -->
+            <div class="card" id="scanCard">
+                <h2 class="card-title">Start Security Analysis</h2>
                 
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" id="autoFixCheckbox">
-                        Automatically apply fixes (high confidence only)
-                    </label>
-                </div>
-                
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" id="generateTestsCheckbox">
-                        Generate unit tests after remediation
-                    </label>
-                </div>
-
-                <button class="btn btn-primary btn-large" id="analyzeRepoBtn">
-                    🔍 Analyze Repository
-                </button>
-            </div>
-        </section>
-
-        <!-- Analysis Progress -->
-        <section id="progressSection" class="progress-section" style="display: none;">
-            <h3>Analysis in Progress</h3>
-            <div class="progress-bar">
-                <div class="progress-fill" id="progressFill"></div>
-            </div>
-            <p id="progressText">Initializing...</p>
-        </section>
-
-        <!-- Results Summary -->
-        <section id="resultsSection" class="results-section" style="display: none;">
-            <h3>Analysis Results</h3>
-            
-            <div class="summary-cards">
-                <div class="summary-card">
-                    <div class="card-icon">📊</div>
-                    <div class="card-content">
-                        <h4>Total Violations</h4>
-                        <p class="card-value" id="totalViolations">0</p>
+                <div class="scan-options">
+                    <!-- Option A: Repository Path -->
+                    <div class="option">
+                        <h3 class="option-title">
+                            <span class="icon">📁</span>
+                            Enter Repository Path or GitHub URL
+                        </h3>
+                        <form id="pathForm" class="form">
+                            <input 
+                                type="text" 
+                                id="repoPath" 
+                                class="input" 
+                                placeholder="./my-project, /absolute/path, or https://github.com/user/repo"
+                                autocomplete="off"
+                            >
+                            <button type="submit" class="btn btn-primary">
+                                <span class="btn-icon">🔍</span>
+                                Scan Repository
+                            </button>
+                        </form>
                     </div>
-                </div>
-                
-                <div class="summary-card critical">
-                    <div class="card-icon">🔴</div>
-                    <div class="card-content">
-                        <h4>Critical</h4>
-                        <p class="card-value" id="criticalCount">0</p>
+
+                    <!-- Divider -->
+                    <div class="divider">
+                        <span>OR</span>
                     </div>
-                </div>
-                
-                <div class="summary-card high">
-                    <div class="card-icon">🟠</div>
-                    <div class="card-content">
-                        <h4>High</h4>
-                        <p class="card-value" id="highCount">0</p>
-                    </div>
-                </div>
-                
-                <div class="summary-card medium">
-                    <div class="card-icon">🟡</div>
-                    <div class="card-content">
-                        <h4>Medium</h4>
-                        <p class="card-value" id="mediumCount">0</p>
-                    </div>
-                </div>
-                
-                <div class="summary-card low">
-                    <div class="card-icon">🟢</div>
-                    <div class="card-content">
-                        <h4>Low</h4>
-                        <p class="card-value" id="lowCount">0</p>
+
+                    <!-- Option B: Upload ZIP -->
+                    <div class="option">
+                        <h3 class="option-title">
+                            <span class="icon">📦</span>
+                            Upload ZIP Archive
+                        </h3>
+                        <form id="uploadForm" class="form">
+                            <div 
+                                id="dropZone" 
+                                class="drop-zone"
+                                ondrop="handleDrop(event)" 
+                                ondragover="handleDragOver(event)"
+                                ondragleave="handleDragLeave(event)"
+                            >
+                                <div class="drop-zone-content">
+                                    <span class="drop-icon">📤</span>
+                                    <p class="drop-text">Drag & drop your ZIP file here</p>
+                                    <p class="drop-subtext">or click to browse</p>
+                                    <input 
+                                        type="file" 
+                                        id="fileInput" 
+                                        accept=".zip"
+                                        style="display: none;"
+                                        onchange="handleFileSelect(event)"
+                                    >
+                                </div>
+                                <div id="fileName" class="file-name" style="display: none;"></div>
+                            </div>
+                            <button type="submit" class="btn btn-primary" id="uploadBtn" disabled>
+                                <span class="btn-icon">🚀</span>
+                                Upload & Scan
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>
 
-            <div class="results-actions">
-                <button class="btn btn-primary" id="viewDetailsBtn">
-                    View Detailed Report
-                </button>
-                <button class="btn btn-secondary" id="remediateBtn">
-                    🔧 Generate Fixes
-                </button>
-                <button class="btn btn-secondary" id="downloadReportBtn">
-                    📥 Download Report
+            <!-- Loading Section (Hidden by default) -->
+            <div class="card loading-card" id="loadingCard" style="display: none;">
+                <h2 class="card-title">
+                    <span class="spinner"></span>
+                    Analysis in Progress
+                </h2>
+                
+                <!-- Current Step -->
+                <div class="step-indicator">
+                    <span id="currentStep" class="step-text">🔍 Initializing scan...</span>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div id="progressFill" class="progress-fill" style="width: 0%"></div>
+                    </div>
+                    <span id="progressText" class="progress-text">0%</span>
+                </div>
+
+                <!-- Live Log Output -->
+                <div class="log-container">
+                    <div class="log-header">
+                        <span>📋 Live Output</span>
+                        <button id="clearLog" class="btn-small" onclick="clearLog()">Clear</button>
+                    </div>
+                    <div id="logOutput" class="log-output"></div>
+                </div>
+
+                <!-- Cancel Button -->
+                <button class="btn btn-secondary" onclick="cancelScan()">
+                    Cancel Scan
                 </button>
             </div>
 
-            <!-- Violations List -->
-            <div class="violations-container">
-                <h4>Top Violations</h4>
-                <div id="violationsList" class="violations-list"></div>
-            </div>
-        </section>
-
-        <!-- Features Section -->
-        <section class="features">
-            <h3>Features</h3>
-            <div class="feature-grid">
-                <div class="feature-card">
-                    <div class="feature-icon">🔍</div>
-                    <h4>Compliance Analysis</h4>
-                    <p>Detect GDPR, HIPAA, and custom compliance violations</p>
+            <!-- Features Section -->
+            <div class="features" id="features">
+                <div class="feature">
+                    <span class="feature-icon">🔍</span>
+                    <h3>Deep Analysis</h3>
+                    <p>AI-powered detection of GDPR, HIPAA, and security violations</p>
                 </div>
-                
-                <div class="feature-card">
-                    <div class="feature-icon">🛡️</div>
-                    <h4>Security Scanning</h4>
-                    <p>Identify security vulnerabilities and code smells</p>
+                <div class="feature">
+                    <span class="feature-icon">🛠️</span>
+                    <h3>Auto-Remediation</h3>
+                    <p>Automatically generate and apply fixes with confidence scoring</p>
                 </div>
-                
-                <div class="feature-card">
-                    <div class="feature-icon">🔧</div>
-                    <h4>Auto Remediation</h4>
-                    <p>Generate and apply fixes automatically</p>
+                <div class="feature">
+                    <span class="feature-icon">🧪</span>
+                    <h3>Test Generation</h3>
+                    <p>Create validation tests for all applied fixes</p>
                 </div>
-                
-                <div class="feature-card">
-                    <div class="feature-icon">🧪</div>
-                    <h4>Test Generation</h4>
-                    <p>Create unit tests for remediated code</p>
-                </div>
-                
-                <div class="feature-card">
-                    <div class="feature-icon">📊</div>
-                    <h4>Detailed Reports</h4>
-                    <p>Generate comprehensive HTML reports</p>
-                </div>
-                
-                <div class="feature-card">
-                    <div class="feature-icon">🤖</div>
-                    <h4>IBM Bob Integration</h4>
-                    <p>Leverage AI for intelligent analysis</p>
+                <div class="feature">
+                    <span class="feature-icon">📊</span>
+                    <h3>Comprehensive Reports</h3>
+                    <p>HTML, JSON, and Markdown reports with actionable insights</p>
                 </div>
             </div>
-        </section>
+        </div>
     </main>
 
+    <!-- Footer -->
     <footer class="footer">
         <div class="container">
-            <p>&copy; 2024 Bob-Guard. Built with ❤️ for secure and compliant code.</p>
+            <p>Powered by IBM Bob AI | Built for Hackathon 2026</p>
         </div>
     </footer>
 
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <!-- JavaScript -->
+    <script src="/static/script.js"></script>
+    <script>
+        // Global variables
+        let currentTaskId = null;
+        let pollInterval = null;
+        let selectedFile = null;
+
+        // Step messages mapping
+        const stepMessages = {
+            'pending': '⏳ Task queued...',
+            'analyzing': '🔍 Scanning codebase for violations...',
+            'remediating': '🛠️ Generating automated fixes...',
+            'generating_tests': '🧪 Creating validation tests...',
+            'generating_report': '📊 Building comprehensive report...',
+            'completed': '✅ Analysis complete!',
+            'failed': '❌ Analysis failed'
+        };
+
+        // Handle path form submission
+        document.getElementById('pathForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const repoPath = document.getElementById('repoPath').value.trim();
+            
+            if (!repoPath) {
+                addLog('❌ Please enter a repository path', 'error');
+                return;
+            }
+
+            await startScan({ repo_path: repoPath });
+        });
+
+        // Handle upload form submission
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (!selectedFile) {
+                addLog('❌ Please select a ZIP file', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            formData.append('use_bob', 'true');
+
+            await startScan(formData, true);
+        });
+
+        // Make drop zone clickable
+        document.getElementById('dropZone').addEventListener('click', () => {
+            document.getElementById('fileInput').click();
+        });
+
+        // Handle drag over
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.currentTarget.classList.add('drag-over');
+        }
+
+        // Handle drag leave
+        function handleDragLeave(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.currentTarget.classList.remove('drag-over');
+        }
+
+        // Handle drop
+        function handleDrop(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.currentTarget.classList.remove('drag-over');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                if (file.name.endsWith('.zip')) {
+                    selectedFile = file;
+                    showFileName(file.name);
+                } else {
+                    addLog('❌ Please select a ZIP file', 'error');
+                }
+            }
+        }
+
+        // Handle file select
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) {
+                selectedFile = file;
+                showFileName(file.name);
+            }
+        }
+
+        // Show selected file name
+        function showFileName(name) {
+            const fileNameEl = document.getElementById('fileName');
+            fileNameEl.textContent = `📦 ${name}`;
+            fileNameEl.style.display = 'block';
+            document.getElementById('uploadBtn').disabled = false;
+        }
+
+        // Start scan
+        async function startScan(data, isFormData = false) {
+            try {
+                // Hide scan card, show loading
+                document.getElementById('scanCard').style.display = 'none';
+                document.getElementById('features').style.display = 'none';
+                document.getElementById('loadingCard').style.display = 'block';
+                
+                addLog('🚀 Starting scan...', 'info');
+
+                const options = {
+                    method: 'POST',
+                    body: isFormData ? data : JSON.stringify(data)
+                };
+
+                if (!isFormData) {
+                    options.headers = { 'Content-Type': 'application/json' };
+                }
+
+                const response = await fetch('/scan', options);
+                const result = await response.json();
+
+                if (result.success) {
+                    currentTaskId = result.task_id;
+                    addLog(`✅ Scan started (Task ID: ${currentTaskId})`, 'success');
+                    startPolling();
+                } else {
+                    throw new Error(result.error || 'Failed to start scan');
+                }
+            } catch (error) {
+                addLog(`❌ Error: ${error.message}`, 'error');
+                resetUI();
+            }
+        }
+
+        // Start polling for status
+        function startPolling() {
+            pollInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`/status/${currentTaskId}`);
+                    const status = await response.json();
+
+                    updateProgress(status);
+
+                    if (status.status === 'completed') {
+                        stopPolling();
+                        addLog('✅ Analysis complete! Redirecting...', 'success');
+                        setTimeout(() => {
+                            window.location.href = '/results';
+                        }, 2000);
+                    } else if (status.status === 'failed') {
+                        stopPolling();
+                        addLog(`❌ Analysis failed: ${status.error}`, 'error');
+                        setTimeout(resetUI, 3000);
+                    }
+                } catch (error) {
+                    addLog(`❌ Polling error: ${error.message}`, 'error');
+                }
+            }, 2000);
+        }
+
+        // Stop polling
+        function stopPolling() {
+            if (pollInterval) {
+                clearInterval(pollInterval);
+                pollInterval = null;
+            }
+        }
+
+        // Update progress
+        function updateProgress(status) {
+            // Update step indicator
+            const stepText = stepMessages[status.status] || status.message;
+            document.getElementById('currentStep').textContent = stepText;
+
+            // Update progress bar
+            const progress = status.progress || 0;
+            document.getElementById('progressFill').style.width = `${progress}%`;
+            document.getElementById('progressText').textContent = `${progress}%`;
+
+            // Add log entry
+            if (status.message) {
+                addLog(`📝 ${status.message}`, 'info');
+            }
+        }
+
+        // Add log entry
+        function addLog(message, type = 'info') {
+            const logOutput = document.getElementById('logOutput');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${type}`;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logOutput.appendChild(logEntry);
+            logOutput.scrollTop = logOutput.scrollHeight;
+        }
+
+        // Clear log
+        function clearLog() {
+            document.getElementById('logOutput').innerHTML = '';
+        }
+
+        // Cancel scan
+        function cancelScan() {
+            stopPolling();
+            addLog('⚠️ Scan cancelled by user', 'warning');
+            setTimeout(resetUI, 1000);
+        }
+
+        // Reset UI
+        function resetUI() {
+            document.getElementById('scanCard').style.display = 'block';
+            document.getElementById('features').style.display = 'grid';
+            document.getElementById('loadingCard').style.display = 'none';
+            document.getElementById('repoPath').value = '';
+            document.getElementById('fileInput').value = '';
+            document.getElementById('fileName').style.display = 'none';
+            document.getElementById('uploadBtn').disabled = true;
+            selectedFile = null;
+            currentTaskId = null;
+            clearLog();
+        }
+    </script>
 </body>
 </html>

@@ -13,7 +13,7 @@ from datetime import datetime
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from src.analyzer import Violation
-from src.remediator import RemediationResult, Fix
+from src.remediator import RemediationResult, Fix, RemediationSummary
 from src.test_generator import TestGenerationResult, TestSuiteResult
 from src.bob_client import BobClient, BobAPIError
 
@@ -191,7 +191,7 @@ class ReportGenerator:
         logger.info(f"Markdown report generated: {output_file}")
         return str(output_file)
 
-    def generate_remediation_report(self, remediation_result: RemediationResult,
+    def generate_remediation_report(self, remediation_result: RemediationSummary,
                                    format: str = 'html') -> str:
         """
         Generate a report for remediation results.
@@ -214,7 +214,7 @@ class ReportGenerator:
         else:
             raise ValueError(f"Unsupported format: {format}")
 
-    def _generate_html_remediation_report(self, remediation_result: RemediationResult) -> str:
+    def _generate_html_remediation_report(self, remediation_result: RemediationSummary) -> str:
         """Generate HTML remediation report."""
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         output_file = self.output_dir / f'remediation_report_{timestamp}.html'
@@ -222,7 +222,7 @@ class ReportGenerator:
         context = {
             'title': 'Bob-Guard Remediation Report',
             'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'total_violations': remediation_result.total_violations,
+            'total_violations': remediation_result.fixes_generated,  # Each fix corresponds to a violation
             'fixes_generated': remediation_result.fixes_generated,
             'fixes_applied': remediation_result.fixes_applied,
             'fixes_failed': remediation_result.fixes_failed,
@@ -237,7 +237,7 @@ class ReportGenerator:
         logger.info(f"HTML remediation report generated: {output_file}")
         return str(output_file)
 
-    def _generate_json_remediation_report(self, remediation_result: RemediationResult) -> str:
+    def _generate_json_remediation_report(self, remediation_result: RemediationSummary) -> str:
         """Generate JSON remediation report."""
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         output_file = self.output_dir / f'remediation_report_{timestamp}.json'
@@ -248,7 +248,7 @@ class ReportGenerator:
         logger.info(f"JSON remediation report generated: {output_file}")
         return str(output_file)
 
-    def _generate_markdown_remediation_report(self, remediation_result: RemediationResult) -> str:
+    def _generate_markdown_remediation_report(self, remediation_result: RemediationSummary) -> str:
         """Generate Markdown remediation report."""
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         output_file = self.output_dir / f'remediation_report_{timestamp}.md'
@@ -260,7 +260,7 @@ class ReportGenerator:
             '',
             '## Summary',
             '',
-            f'- **Total Violations:** {remediation_result.total_violations}',
+            f'- **Total Violations:** {remediation_result.fixes_generated}',
             f'- **Fixes Generated:** {remediation_result.fixes_generated}',
             f'- **Fixes Applied:** {remediation_result.fixes_applied}',
             f'- **Fixes Failed:** {remediation_result.fixes_failed}',
@@ -512,14 +512,14 @@ class Reporter:
     Generates JSON and HTML reports with executive summaries.
     """
 
-    def __init__(self, violations: List[Violation], remediations: List[RemediationResult],
+    def __init__(self, violations: List[Violation], remediations: List[RemediationSummary],
                  test_results: Optional[TestSuiteResult], repo_path: str, output_dir: str = 'output'):
         """
         Initialize the Reporter.
         
         Args:
             violations: List of violations found during analysis
-            remediations: List of remediation results with applied fixes
+            remediations: List of remediation summaries with applied fixes
             test_results: Test execution results
             repo_path: Path to the analyzed repository
             output_dir: Directory to store generated reports

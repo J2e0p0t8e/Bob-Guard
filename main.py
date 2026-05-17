@@ -16,9 +16,13 @@ Usage:
 import sys
 import argparse
 import json
+import shutil
+import subprocess
+import uuid
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any
+from urllib.parse import urlparse
 
 # Progress bar for visual feedback
 try:
@@ -165,6 +169,72 @@ def validate_repository(repo_path: str) -> Path:
     return repo
 
 
+def is_github_repository_source(repo_source: str) -> bool:
+    """Return True when the source looks like a GitHub repository URL."""
+    normalized_source = repo_source.strip().lower()
+    return (
+        normalized_source.startswith('git@github.com:')
+        or normalized_source.startswith('https://github.com/')
+        or normalized_source.startswith('http://github.com/')
+        or normalized_source.startswith('github.com/')
+    )
+
+
+def normalize_github_clone_url(repo_source: str) -> str:
+    """Convert a GitHub repository source into a git clone URL."""
+    source = repo_source.strip()
+
+    if source.startswith('git@github.com:'):
+        return source if source.endswith('.git') else f"{source}.git"
+
+    if source.startswith('github.com/'):
+        source = f"https://{source}"
+
+    parsed = urlparse(source)
+    path = parsed.path.rstrip('/')
+    if path.endswith('.git'):
+        return source
+    return f"{parsed.scheme}://{parsed.netloc}{path}.git"
+
+
+def clone_github_repository(repo_source: str, work_dir: Path) -> Path:
+    """Clone a GitHub repository into a local work directory and return the path."""
+    clone_url = normalize_github_clone_url(repo_source)
+    target_dir = work_dir / f"github_clone_{uuid.uuid4().hex}"
+
+    try:
+        subprocess.run(
+            ['git', 'clone', '--depth', '1', clone_url, str(target_dir)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError as e:
+        raise RuntimeError("Git is not installed or not available in PATH") from e
+    except subprocess.CalledProcessError as e:
+        error_output = (e.stderr or e.stdout or str(e)).strip()
+        raise RuntimeError(f"Failed to clone GitHub repository: {error_output}") from e
+
+    if not target_dir.exists():
+        raise RuntimeError("Git clone completed but the repository directory was not created")
+
+    return target_dir
+
+
+def resolve_repository_source(repo_source: str, work_dir: Path) -> tuple[Path, bool]:
+    """Resolve a repository source into a local path ready for analysis.
+
+    Returns:
+        A tuple of (local repository path, cleanup_required).
+    """
+    source = repo_source.strip()
+
+    if is_github_repository_source(source):
+        return clone_github_repository(source, work_dir), True
+
+    return validate_repository(source), False
+
+
 def create_output_directory(output_path: str) -> Path:
     """
     Create output directory if it doesn't exist.
@@ -251,13 +321,14 @@ def main():
 Examples:
   python main.py --repo ./my-project --output ./reports
   python main.py --repo /path/to/legacy/code --output ./analysis-results
+    python main.py --repo https://github.com/user/repository --output ./analysis-results
         """
     )
     
     parser.add_argument(
         '--repo',
         required=True,
-        help='Path to the repository to analyze'
+        help='Path to the repository to analyze or a GitHub repository URL'
     )
     
     parser.add_argument(
@@ -285,6 +356,8 @@ Examples:
     )
     
     args = parser.parse_args()
+    cleanup_repo_path = None
+    repo_path = None
     
     # Print header
     print_header()
@@ -299,15 +372,15 @@ Examples:
         # ============================================================
         print_step(0, 4, "Initializing Bob-Guard")
         
-        # Validate repository
-        print_info(f"Validating repository: {args.repo}")
-        repo_path = validate_repository(args.repo)
-        print_success(f"Repository validated: {repo_path}")
-        
-        # Create output directory
+        # Create output directory early so temporary clones can live beside the run artifacts.
         print_info(f"Creating output directory: {args.output}")
         output_dir = create_output_directory(args.output)
         print_success(f"Output directory ready: {output_dir}")
+        
+        # Validate or clone repository source
+        print_info(f"Resolving repository source: {args.repo}")
+        repo_path, cleanup_repo_path = resolve_repository_source(args.repo, output_dir)
+        print_success(f"Repository ready: {repo_path}")
         
         # Load rules configuration
         print_info(f"Loading rules from: {args.config}")
@@ -481,6 +554,10 @@ Examples:
         import traceback
         traceback.print_exc()
         sys.exit(1)
+    finally:
+        if cleanup_repo_path and repo_path and repo_path.exists():
+            shutil.rmtree(repo_path, ignore_errors=True)
+            print_info("Cleaned up temporary cloned repository")
 
 
 if __name__ == '__main__':
